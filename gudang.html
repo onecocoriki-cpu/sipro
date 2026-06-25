@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Form Permintaan Barang — SiPro</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --primary: #1a56db;
+      --primary-h: #1648c0;
+      --primary-bg: #eff6ff;
+      --success: #057a55;
+      --success-bg: #f0fdf4;
+      --danger: #e02424;
+      --danger-bg: #fef2f2;
+      --warn: #b45309;
+      --warn-bg: #fffbeb;
+      --text: #111928;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --bg: #f3f4f6;
+      --white: #ffffff;
+      --radius: 10px;
+      --shadow: 0 2px 12px rgba(0, 0, 0, .07);
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── NAVBAR ── */
+    nav {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: .85rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-logo {
+      width: 36px;
+      height: 36px;
+      background: var(--primary);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-logo svg {
+      width: 20px;
+      height: 20px;
+      fill: white;
+    }
+
+    .nav-brand span {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .nav-brand small {
+      font-size: .75rem;
+      color: var(--muted);
+      display: block;
+      line-height: 1;
+    }
+
+    .nav-user {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-chip {
+      background: var(--primary-bg);
+      color: var(--primary);
+      border-radius: 20px;
+      padding: .35rem .85rem;
+      font-size: .82rem;
+      font-weight: 600;
+    }
+
+    .btn-logout {
+      background: none;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: .35rem .75rem;
+      font-size: .82rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .btn-logout:hover {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    /* ── LAYOUT ── */
+    main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 2rem 1rem 4rem;
+    }
+
+    .page-header {
+      margin-bottom: 1.75rem;
+    }
+
+    .page-header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .page-header p {
+      color: var(--muted);
+      font-size: .875rem;
+      margin-top: .25rem;
+    }
+
+    /* ── RIWAYAT TABS ── */
+    .tabs {
+      display: flex;
+      gap: .5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab {
+      padding: .45rem 1.1rem;
+      border-radius: 20px;
+      font-size: .85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1.5px solid var(--border);
+      background: var(--white);
+      color: var(--muted);
+      transition: all .2s;
+    }
+
+    .tab.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--white);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+      padding-bottom: .75rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title svg {
+      width: 18px;
+      height: 18px;
+      color: var(--primary);
+    }
+
+    /* ── FORM GRID ── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.1rem;
+    }
+
+    .form-grid .full {
+      grid-column: 1 / -1;
+    }
+
+    .field label {
+      display: block;
+      font-size: .825rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: .35rem;
+    }
+
+    .field label .req {
+      color: var(--danger);
+      margin-left: 2px;
+    }
+
+    .field label .hint {
+      font-weight: 400;
+      color: var(--muted);
+      font-size: .78rem;
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      padding: .65rem .85rem;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      font-size: .9rem;
+      color: var(--text);
+      font-family: inherit;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      background: var(--white);
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(26, 86, 219, .1);
+    }
+
+    .field input:disabled,
+    .field select:disabled {
+      background: var(--bg);
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+
+    .field textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    /* ── PRIORITAS PILLS ── */
+    .priority-group {
+      display: flex;
+      gap: .6rem;
+      flex-wrap: wrap;
+    }
+
+    .priority-option {
+      display: none;
+    }
+
+    .priority-label {
+      padding: .45rem 1.1rem;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      font-size: .85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .18s;
+      user-select: none;
+    }
+
+    .priority-option:checked+.priority-label {
+      color: white;
+      border-color: transparent;
+    }
+
+    #p-low:checked+.priority-label {
+      background: #16a34a;
+    }
+
+    #p-medium:checked+.priority-label {
+      background: #2563eb;
+    }
+
+    #p-high:checked+.priority-label {
+      background: #d97706;
+    }
+
+    #p-urgent:checked+.priority-label {
+      background: #dc2626;
+    }
+
+    .priority-label[for="p-low"] {
+      color: #16a34a;
+    }
+
+    .priority-label[for="p-medium"] {
+      color: #2563eb;
+    }
+
+    .priority-label[for="p-high"] {
+      color: #d97706;
+    }
+
+    .priority-label[for="p-urgent"] {
+      color: #dc2626;
+    }
+
+    /* ── INFO READONLY ── */
+    .info-row {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      background: var(--primary-bg);
+      border-radius: var(--radius);
+      padding: .85rem 1rem;
+      margin-bottom: 1.25rem;
+      font-size: .85rem;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .info-item span:first-child {
+      color: var(--muted);
+      font-size: .78rem;
+    }
+
+    .info-item span:last-child {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* ── TOMBOL SUBMIT ── */
+    .form-actions {
+      display: flex;
+      gap: .75rem;
+      justify-content: flex-end;
+      margin-top: 1.5rem;
+    }
+
+    .btn-reset {
+      padding: .7rem 1.5rem;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--white);
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--muted);
+      transition: all .2s;
+    }
+
+    .btn-reset:hover {
+      border-color: #9ca3af;
+      color: var(--text);
+    }
+
+    .btn-submit {
+      padding: .7rem 2rem;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background .2s, transform .1s;
+    }
+
+    .btn-submit:hover {
+      background: var(--primary-h);
+    }
+
+    .btn-submit:active {
+      transform: scale(.98);
+    }
+
+    .btn-submit:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, .4);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1f2937;
+      color: white;
+      padding: .85rem 1.5rem;
+      border-radius: 10px;
+      font-size: .9rem;
+      font-weight: 500;
+      opacity: 0;
+      transition: all .35s;
+      z-index: 999;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    #toast.success {
+      background: var(--success);
+    }
+
+    #toast.error {
+      background: var(--danger);
+    }
+
+    /* ── RIWAYAT TABLE ── */
+    #panel-riwayat {
+      display: none;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+    }
+
+    th {
+      background: var(--bg);
+      padding: .6rem .85rem;
+      text-align: left;
+      font-weight: 600;
+      color: var(--muted);
+      font-size: .78rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: .65rem .85rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: var(--bg);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: .25rem .7rem;
+      border-radius: 20px;
+      font-size: .75rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .badge-pending {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .badge-approved1 {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .badge-approved2 {
+      background: var(--success-bg);
+      color: var(--success);
+    }
+
+    .badge-rejected {
+      background: var(--danger-bg);
+      color: var(--danger);
+    }
+
+    .badge-purchased {
+      background: #f3e8ff;
+      color: #6b21a8;
+    }
+
+    .badge-received {
+      background: #dcfce7;
+      color: #14532d;
+    }
+
+    .pr-low {
+      color: #16a34a;
+      font-weight: 700;
+    }
+
+    .pr-medium {
+      color: #2563eb;
+      font-weight: 700;
+    }
+
+    .pr-high {
+      color: #d97706;
+      font-weight: 700;
+    }
+
+    .pr-urgent {
+      color: #dc2626;
+      font-weight: 700;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--muted);
+    }
+
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 1rem;
+      opacity: .4;
+    }
+
+    @media (max-width: 600px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .form-grid .full {
+        grid-column: 1;
+      }
+
+      .form-actions {
+        flex-direction: column;
+      }
+
+      .btn-submit,
+      .btn-reset {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- NAVBAR -->
+  <nav>
+    <div class="nav-brand">
+      <div class="nav-logo">
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zm-9 7H5v-2h6v2zm8 0h-2v-2h2v2zm0-4H5V8h14v2z" />
+        </svg>
+      </div>
+      <div>
+        <span>SiPro</span>
+        <small>Sistem Procurement Internal</small>
+      </div>
+    </div>
+    <div class="nav-user">
+      <span class="user-chip" id="user-chip">Memuat...</span>
+      <button class="btn-logout" onclick="logout()">Keluar</button>
+    </div>
+  </nav>
+
+  <main>
+    <div class="page-header">
+      <h1>Permintaan Barang</h1>
+      <p>Isi form di bawah ini untuk mengajukan permintaan barang ke bagian pembelian</p>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" onclick="showPanel('form', this)">Form Baru</button>
+      <button class="tab" onclick="showPanel('riwayat', this)">Riwayat Saya</button>
+    </div>
+
+    <!-- ══ PANEL FORM ══ -->
+    <div id="panel-form">
+      <div class="card">
+        <div class="card-title">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Informasi Pemohon
+        </div>
+
+        <!-- Info otomatis -->
+        <div class="info-row">
+          <div class="info-item">
+            <span>Petugas Input</span>
+            <span id="disp-nama">—</span>
+          </div>
+          <div class="info-item">
+            <span>Tanggal Input</span>
+            <span id="disp-tanggal">—</span>
+          </div>
+          <div class="info-item">
+            <span>No. Permintaan</span>
+            <span id="disp-noperm">Auto-generate</span>
+          </div>
+        </div>
+
+        <form id="form-pr" novalidate>
+          <div class="form-grid">
+
+            <!-- Lokasi Gedung -->
+            <div class="field">
+              <label for="lokasi">Lokasi / Gedung <span class="req">*</span></label>
+              <select id="lokasi" required>
+                <option value="">— Pilih lokasi —</option>
+                <option>Gedung 1 — Gudang Kalipucang</option>
+                <option>Gedung 2 — Gudang Sekarjati</option>
+                <option>Gedung 3 — Gudang Troso</option>
+                <option>Gedung 4 — Gudang Innerbox</option>
+                <option>Gedung 5 — Gudang Ngabul</option>
+              </select>
+            </div>
+
+            <!-- Requester -->
+            <div class="field">
+              <label for="requester">Nama Pemohon <span class="req">*</span> <span class="hint">(yang butuh
+                  barang)</span></label>
+              <input type="text" id="requester" placeholder="Nama lengkap pemohon" required />
+            </div>
+
+            <!-- Nama Barang -->
+            <div class="field full">
+              <label for="nama-barang">Nama Barang <span class="req">*</span></label>
+              <input type="text" id="nama-barang" placeholder="Contoh: Kardus Box 40x40x40 cm" required />
+            </div>
+
+            <!-- Jumlah -->
+            <div class="field">
+              <label for="jumlah">Jumlah <span class="req">*</span></label>
+              <input type="number" id="jumlah" placeholder="0" min="1" required />
+            </div>
+
+            <!-- Satuan -->
+            <div class="field">
+              <label for="satuan">Satuan <span class="req">*</span></label>
+              <select id="satuan" required>
+                <option value="">— Pilih —</option>
+                <option>Pcs</option>
+                <option>Lusin</option>
+                <option>Kodi</option>
+                <option>Rim</option>
+                <option>Kg</option>
+                <option>Liter</option>
+                <option>Meter</option>
+                <option>Box</option>
+                <option>Karton</option>
+                <option>Unit</option>
+                <option>Set</option>
+                <option>Lembar</option>
+                <option>Rol</option>
+              </select>
+            </div>
+
+            <!-- Keperluan / Tujuan -->
+            <div class="field full">
+              <label for="keperluan">Untuk Kebutuhan Apa <span class="req">*</span></label>
+              <select id="keperluan" required>
+                <option value="">— Pilih kebutuhan —</option>
+                <option>Operasional Harian</option>
+                <option>Perlengkapan Gudang</option>
+                <option>Keselamatan Kerja (K3)</option>
+                <option>Penggantian Alat Rusak</option>
+                <option>Proyek / Kegiatan Khusus</option>
+                <option>Kebutuhan Kantor</option>
+                <option>Bahan Baku Produksi</option>
+                <option>Pemeliharaan / Perawatan</option>
+                <option>Lainnya</option>
+              </select>
+            </div>
+
+            <!-- Keterangan -->
+            <div class="field full">
+              <label for="keterangan">Keterangan Tambahan <span class="hint">(opsional)</span></label>
+              <textarea id="keterangan"
+                placeholder="Spesifikasi, merek, atau catatan tambahan yang perlu diketahui tim pembelian..."></textarea>
+            </div>
+
+            <!-- Prioritas -->
+            <div class="field full">
+              <label>Prioritas <span class="req">*</span></label>
+              <div class="priority-group">
+                <input type="radio" name="prioritas" id="p-low" value="Low" class="priority-option" />
+                <label class="priority-label" for="p-low">Low</label>
+
+                <input type="radio" name="prioritas" id="p-medium" value="Medium" class="priority-option" checked />
+                <label class="priority-label" for="p-medium">Medium</label>
+
+                <input type="radio" name="prioritas" id="p-high" value="High" class="priority-option" />
+                <label class="priority-label" for="p-high">High</label>
+
+                <input type="radio" name="prioritas" id="p-urgent" value="Urgent" class="priority-option" />
+                <label class="priority-label" for="p-urgent">Urgent</label>
+              </div>
+            </div>
+
+          </div><!-- /form-grid -->
+
+          <div class="form-actions">
+            <button type="button" class="btn-reset" onclick="resetForm()">Reset</button>
+            <button type="button" class="btn-submit" id="btn-submit" onclick="submitPermintaan()">
+              <div class="spinner" id="spinner"></div>
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+                id="submit-icon">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+              <span id="submit-text">Kirim Permintaan</span>
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div><!-- /panel-form -->
+
+    <!-- ══ PANEL RIWAYAT ══ -->
+    <div id="panel-riwayat">
+      <div class="card">
+        <div class="card-title">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          Riwayat Permintaan Saya
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>No. Perm.</th>
+                <th>Tgl Input</th>
+                <th>Nama Barang</th>
+                <th>Jml</th>
+                <th>Prioritas</th>
+                <th>Status</th>
+                <th>Keterangan</th>
+              </tr>
+            </thead>
+            <tbody id="tabel-riwayat">
+              <tr>
+                <td colspan="7">
+                  <div class="empty-state">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <p>Memuat data...</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /panel-riwayat -->
+
+  </main>
+
+  <!-- TOAST -->
+  <div id="toast"></div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script>
+
+    let currentUser = null;
+
+    // ── Init: cek login ──
+    auth.onAuthStateChanged(async user => {
+      if (!user) { window.location.href = 'index.html'; return; }
+      currentUser = await getCurrentUserInfo();
+      if (!currentUser || !['gudang'].includes(currentUser.role)) {
+        window.location.href = 'index.html'; return;
+      }
+      initPage();
+    });
+
+    function initPage() {
+      document.getElementById('user-chip').textContent = currentUser.nama;
+      document.getElementById('disp-nama').textContent = currentUser.nama;
+      document.getElementById('disp-tanggal').textContent = formatTanggal(new Date());
+
+      // Isi lokasi otomatis jika ada
+      if (currentUser.lokasi && currentUser.lokasi !== 'Semua') {
+        const sel = document.getElementById('lokasi');
+        for (let o of sel.options) {
+          if (o.text.startsWith(currentUser.lokasi)) { sel.value = o.value; break; }
+        }
+      }
+    }
+
+    // ── Panel Switch ──
+    function showPanel(name, btn) {
+      document.getElementById('panel-form').style.display = name === 'form' ? '' : 'none';
+      document.getElementById('panel-riwayat').style.display = name === 'riwayat' ? '' : 'none';
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      if (name === 'riwayat') loadRiwayat();
+    }
+
+    // ── Generate No. Permintaan ──
+    function generateNoPerm() {
+      const now = new Date();
+      const yy = String(now.getFullYear()).slice(2);
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const rnd = String(Math.floor(Math.random() * 9000) + 1000);
+      return `PR-${yy}${mm}${dd}-${rnd}`;
+    }
+
+    // ── Submit ──
+    async function submitPermintaan() {
+      if (!validasiForm()) return;
+
+      const noPerm = generateNoPerm();
+      document.getElementById('disp-noperm').textContent = noPerm;
+
+      const prioritas = document.querySelector('input[name="prioritas"]:checked')?.value || 'Medium';
+
+      const data = {
+        noPerm,
+        lokasi: document.getElementById('lokasi').value,
+        requester: document.getElementById('requester').value.trim(),
+        namaBarang: document.getElementById('nama-barang').value.trim(),
+        jumlah: Number(document.getElementById('jumlah').value),
+        satuan: document.getElementById('satuan').value,
+        keperluan: document.getElementById('keperluan').value,
+        keterangan: document.getElementById('keterangan').value.trim(),
+        prioritas,
+        petugasInput: currentUser.nama,
+        petugasEmail: currentUser.email,
+        petugasUID: currentUser.uid,
+        tanggalInput: firebase.firestore.FieldValue.serverTimestamp(),
+        status: 'Pending',          // Pending → Approved1 → Approved2 → Purchased → Received
+        statusLabel: 'Menunggu Kepala Gudang',
+        approvalKepGudang: null,
+        approvalManager: null,
+        catatanApproval: '',
+        syncedToSheets: false,
+      };
+
+      setLoading(true);
+      try {
+        await db.collection('permintaan').doc(noPerm).set(data);
+        showToast('✓ Permintaan berhasil dikirim! No: ' + noPerm, 'success');
+        resetForm();
+      } catch (e) {
+        console.error(e);
+        showToast('Gagal mengirim permintaan. Coba lagi.', 'error');
+      }
+      setLoading(false);
+    }
+
+    // ── Validasi ──
+    function validasiForm() {
+      const wajib = [
+        { id: 'lokasi', label: 'Lokasi / Gedung' },
+        { id: 'requester', label: 'Nama Pemohon' },
+        { id: 'nama-barang', label: 'Nama Barang' },
+        { id: 'jumlah', label: 'Jumlah' },
+        { id: 'satuan', label: 'Satuan' },
+        { id: 'keperluan', label: 'Kebutuhan' },
+      ];
+      for (const f of wajib) {
+        const el = document.getElementById(f.id);
+        if (!el.value || el.value.trim() === '') {
+          el.focus();
+          el.style.borderColor = 'var(--danger)';
+          setTimeout(() => el.style.borderColor = '', 2000);
+          showToast('Field "' + f.label + '" wajib diisi.', 'error');
+          return false;
+        }
+      }
+      if (Number(document.getElementById('jumlah').value) < 1) {
+        showToast('Jumlah harus lebih dari 0.', 'error');
+        return false;
+      }
+      return true;
+    }
+
+    // ── Reset ──
+    function resetForm() {
+      document.getElementById('form-pr').reset();
+      document.getElementById('disp-noperm').textContent = 'Auto-generate';
+      document.getElementById('disp-tanggal').textContent = formatTanggal(new Date());
+      document.getElementById('p-medium').checked = true;
+    }
+
+    // ── Load Riwayat ──
+    function loadRiwayat() {
+      db.collection('permintaan')
+        .where('petugasUID', '==', currentUser.uid)
+        .orderBy('tanggalInput', 'desc')
+        .limit(50)
+        .onSnapshot(snap => {
+          const tbody = document.getElementById('tabel-riwayat');
+          if (snap.empty) {
+            tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          <p>Belum ada permintaan</p></div></td></tr>`;
+            return;
+          }
+          tbody.innerHTML = snap.docs.map(doc => {
+            const d = doc.data();
+            const tgl = d.tanggalInput?.toDate ? formatTanggal(d.tanggalInput.toDate()) : '—';
+            return `<tr>
+          <td><b>${d.noPerm}</b></td>
+          <td>${tgl}</td>
+          <td>${d.namaBarang}<br><small style="color:var(--muted)">${d.jumlah} ${d.satuan} · ${d.keperluan}</small></td>
+          <td>${d.jumlah} ${d.satuan}</td>
+          <td class="pr-${d.prioritas?.toLowerCase()}">${d.prioritas}</td>
+          <td>${badgeStatus(d.status)}</td>
+          <td style="max-width:180px;font-size:.8rem;color:var(--muted)">${d.catatanApproval || '—'}</td>
+        </tr>`;
+          }).join('');
+        });
+    }
+
+    // ── Helpers ──
+    function badgeStatus(status) {
+      const map = {
+        'Pending': ['badge-pending', 'Menunggu Kep. Gudang'],
+        'Approved1': ['badge-approved1', 'Disetujui Kep. Gudang'],
+        'Approved2': ['badge-approved2', 'Disetujui Manager'],
+        'Rejected': ['badge-rejected', 'Ditolak'],
+        'Purchased': ['badge-purchased', 'Sudah Dibeli'],
+        'Received': ['badge-received', 'Diterima Gudang'],
+      };
+      const [cls, label] = map[status] || ['badge-pending', status];
+      return `<span class="badge ${cls}">${label}</span>`;
+    }
+
+    function formatTanggal(d) {
+      return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function setLoading(on) {
+      document.getElementById('spinner').style.display = on ? 'block' : 'none';
+      document.getElementById('submit-icon').style.display = on ? 'none' : 'block';
+      document.getElementById('submit-text').textContent = on ? 'Mengirim...' : 'Kirim Permintaan';
+      document.getElementById('btn-submit').disabled = on;
+    }
+
+    let toastTimer;
+    function showToast(msg, type = '') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'show ' + type;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.className = '', 3500);
+    }
+
+    function logout() {
+      auth.signOut().then(() => window.location.href = 'index.html');
+    }
+
+  </script>
+</body>
+
+</html>
