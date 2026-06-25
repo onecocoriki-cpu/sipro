@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Approval Permintaan — SiPro</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary:    #1a56db;
+      --primary-h:  #1648c0;
+      --primary-bg: #eff6ff;
+      --success:    #057a55;
+      --success-bg: #f0fdf4;
+      --success-h:  #046c4e;
+      --danger:     #e02424;
+      --danger-bg:  #fef2f2;
+      --danger-h:   #c81e1e;
+      --warn:       #b45309;
+      --warn-bg:    #fffbeb;
+      --text:       #111928;
+      --muted:      #6b7280;
+      --border:     #e5e7eb;
+      --bg:         #f3f4f6;
+      --white:      #ffffff;
+      --radius:     10px;
+      --shadow:     0 2px 12px rgba(0,0,0,.07);
+    }
+
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* NAV */
+    nav {
+      background: var(--white); border-bottom: 1px solid var(--border);
+      padding: .85rem 1.5rem; display: flex; align-items: center;
+      justify-content: space-between; position: sticky; top: 0; z-index: 100;
+    }
+    .nav-brand { display: flex; align-items: center; gap: 10px; }
+    .nav-logo { width: 36px; height: 36px; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .nav-logo svg { width: 20px; height: 20px; fill: white; }
+    .nav-brand span { font-size: 1rem; font-weight: 700; }
+    .nav-brand small { font-size: .75rem; color: var(--muted); display: block; }
+    .nav-right { display: flex; align-items: center; gap: 10px; }
+    .role-chip { background: #fef3c7; color: #92400e; border-radius: 20px; padding: .3rem .85rem; font-size: .8rem; font-weight: 700; }
+    .role-chip.manager { background: var(--primary-bg); color: var(--primary); }
+    .user-chip { background: var(--bg); border-radius: 20px; padding: .3rem .85rem; font-size: .82rem; font-weight: 600; }
+    .btn-logout { background: none; border: 1.5px solid var(--border); border-radius: var(--radius); padding: .3rem .75rem; font-size: .82rem; color: var(--muted); cursor: pointer; transition: all .2s; }
+    .btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* LAYOUT */
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+    .page-header { margin-bottom: 1.5rem; }
+    .page-header h1 { font-size: 1.5rem; font-weight: 700; }
+    .page-header p { color: var(--muted); font-size: .875rem; margin-top: .25rem; }
+
+    /* STATS BAR */
+    .stats-bar { display: flex; gap: 1rem; margin-bottom: 1.75rem; flex-wrap: wrap; }
+    .stat-card { background: var(--white); border-radius: 12px; padding: .9rem 1.25rem; flex: 1; min-width: 120px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 4px; }
+    .stat-card .num { font-size: 1.75rem; font-weight: 800; line-height: 1; }
+    .stat-card .lbl { font-size: .78rem; color: var(--muted); }
+    .stat-card.pending  .num { color: #92400e; }
+    .stat-card.approved .num { color: var(--success); }
+    .stat-card.rejected .num { color: var(--danger); }
+    .stat-card.all      .num { color: var(--primary); }
+
+    /* FILTER & SEARCH */
+    .toolbar { display: flex; gap: .75rem; margin-bottom: 1.25rem; flex-wrap: wrap; align-items: center; }
+    .search-box { flex: 1; min-width: 200px; position: relative; }
+    .search-box input { width: 100%; padding: .6rem .9rem .6rem 2.4rem; border: 1.5px solid var(--border); border-radius: var(--radius); font-size: .9rem; outline: none; transition: border-color .2s; }
+    .search-box input:focus { border-color: var(--primary); }
+    .search-box svg { position: absolute; left: .75rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--muted); }
+    .filter-btn { padding: .55rem 1rem; border: 1.5px solid var(--border); border-radius: var(--radius); background: var(--white); font-size: .85rem; cursor: pointer; color: var(--muted); transition: all .2s; white-space: nowrap; }
+    .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+    /* TABLE */
+    .card { background: var(--white); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+    th { background: var(--bg); padding: .65rem .9rem; text-align: left; font-weight: 600; color: var(--muted); font-size: .78rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: .7rem .9rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+
+    /* BADGE */
+    .badge { display: inline-flex; align-items: center; padding: .25rem .7rem; border-radius: 20px; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+    .badge-pending   { background: #fef3c7; color: #92400e; }
+    .badge-approved1 { background: #dbeafe; color: #1e40af; }
+    .badge-approved2 { background: var(--success-bg); color: var(--success); }
+    .badge-rejected  { background: var(--danger-bg); color: var(--danger); }
+    .badge-purchased { background: #f3e8ff; color: #6b21a8; }
+    .badge-received  { background: #dcfce7; color: #14532d; }
+
+    .pr-low    { color: #16a34a; font-weight: 700; font-size: .82rem; }
+    .pr-medium { color: #2563eb; font-weight: 700; font-size: .82rem; }
+    .pr-high   { color: #d97706; font-weight: 700; font-size: .82rem; }
+    .pr-urgent { color: #dc2626; font-weight: 700; font-size: .82rem; }
+
+    /* ACTION BUTTONS */
+    .btn-approve { padding: .38rem .85rem; background: var(--success); color: white; border: none; border-radius: 6px; font-size: .8rem; font-weight: 600; cursor: pointer; transition: background .2s; }
+    .btn-approve:hover { background: var(--success-h); }
+    .btn-reject  { padding: .38rem .85rem; background: var(--white); color: var(--danger); border: 1.5px solid var(--danger); border-radius: 6px; font-size: .8rem; font-weight: 600; cursor: pointer; transition: all .2s; }
+    .btn-reject:hover { background: var(--danger); color: white; }
+    .btn-detail  { padding: .38rem .75rem; background: var(--bg); color: var(--muted); border: 1.5px solid var(--border); border-radius: 6px; font-size: .8rem; cursor: pointer; transition: all .2s; }
+    .btn-detail:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* EMPTY */
+    .empty-state { text-align: center; padding: 4rem 1rem; color: var(--muted); }
+    .empty-state svg { width: 52px; height: 52px; margin-bottom: 1rem; opacity: .35; }
+    .empty-state p { font-size: .9rem; }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      z-index: 200; display: none; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--white); border-radius: 16px;
+      width: 100%; max-width: 600px; max-height: 90vh;
+      overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+      animation: popIn .2s ease;
+    }
+    @keyframes popIn { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .modal-head {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; background: var(--white); z-index: 1;
+    }
+    .modal-head h3 { font-size: 1.05rem; font-weight: 700; }
+    .btn-close { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 1.4rem; line-height: 1; padding: .2rem; }
+    .btn-close:hover { color: var(--danger); }
+    .modal-body { padding: 1.5rem; }
+
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; margin-bottom: 1.25rem; }
+    .detail-item { display: flex; flex-direction: column; gap: 3px; }
+    .detail-item .lbl { font-size: .75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+    .detail-item .val { font-size: .9rem; color: var(--text); font-weight: 500; }
+    .detail-item.full { grid-column: 1 / -1; }
+
+    .approval-section { background: var(--bg); border-radius: 10px; padding: 1.1rem; margin-top: 1rem; }
+    .approval-section h4 { font-size: .9rem; font-weight: 700; margin-bottom: .85rem; }
+    .approval-section label { display: block; font-size: .82rem; font-weight: 600; margin-bottom: .35rem; }
+    .approval-section textarea {
+      width: 100%; padding: .65rem .85rem;
+      border: 1.5px solid var(--border); border-radius: var(--radius);
+      font-size: .875rem; font-family: inherit;
+      resize: vertical; min-height: 70px; outline: none;
+      transition: border-color .2s;
+    }
+    .approval-section textarea:focus { border-color: var(--primary); }
+    .modal-actions { display: flex; gap: .75rem; margin-top: 1.1rem; justify-content: flex-end; }
+    .btn-modal-approve {
+      padding: .65rem 1.5rem; background: var(--success); color: white;
+      border: none; border-radius: var(--radius); font-size: .9rem; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background .2s;
+    }
+    .btn-modal-approve:hover { background: var(--success-h); }
+    .btn-modal-approve:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-modal-reject {
+      padding: .65rem 1.5rem; background: var(--white); color: var(--danger);
+      border: 1.5px solid var(--danger); border-radius: var(--radius); font-size: .9rem; font-weight: 600;
+      cursor: pointer; transition: all .2s;
+    }
+    .btn-modal-reject:hover { background: var(--danger); color: white; }
+    .btn-modal-reject:disabled { opacity: .6; cursor: not-allowed; }
+
+    .history-log { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+    .history-log h4 { font-size: .85rem; font-weight: 700; color: var(--muted); margin-bottom: .75rem; }
+    .log-item { display: flex; gap: 10px; margin-bottom: .65rem; font-size: .83rem; }
+    .log-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex-shrink: 0; margin-top: 5px; }
+    .log-dot.green  { background: var(--success); }
+    .log-dot.red    { background: var(--danger); }
+    .log-dot.yellow { background: #d97706; }
+    .log-content { line-height: 1.5; color: var(--muted); }
+    .log-content strong { color: var(--text); }
+
+    /* TOAST */
+    #toast {
+      position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(80px);
+      background: #1f2937; color: white; padding: .85rem 1.5rem;
+      border-radius: 10px; font-size: .9rem; font-weight: 500;
+      opacity: 0; transition: all .35s; z-index: 999; white-space: nowrap;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    #toast.success { background: var(--success); }
+    #toast.error   { background: var(--danger); }
+
+    /* SPINNER */
+    .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.4); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 640px) {
+      .stats-bar { gap: .6rem; }
+      .stat-card { min-width: 80px; padding: .7rem 1rem; }
+      .detail-grid { grid-template-columns: 1fr; }
+      .modal-actions { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <div class="nav-logo"><svg viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zm-9 7H5v-2h6v2zm8 0h-2v-2h2v2zm0-4H5V8h14v2z"/></svg></div>
+    <div><span>SiPro</span><small>Sistem Procurement Internal</small></div>
+  </div>
+  <div class="nav-right">
+    <span class="role-chip" id="role-chip">—</span>
+    <span class="user-chip" id="user-chip">Memuat...</span>
+    <button class="btn-logout" onclick="logout()">Keluar</button>
+  </div>
+</nav>
+
+<main>
+  <div class="page-header">
+    <h1 id="page-title">Dashboard Approval</h1>
+    <p id="page-sub">Kelola dan proses permintaan barang dari petugas gudang</p>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-bar">
+    <div class="stat-card pending">
+      <span class="num" id="cnt-pending">0</span>
+      <span class="lbl">Menunggu Saya</span>
+    </div>
+    <div class="stat-card approved">
+      <span class="num" id="cnt-approved">0</span>
+      <span class="lbl">Disetujui</span>
+    </div>
+    <div class="stat-card rejected">
+      <span class="num" id="cnt-rejected">0</span>
+      <span class="lbl">Ditolak</span>
+    </div>
+    <div class="stat-card all">
+      <span class="num" id="cnt-all">0</span>
+      <span class="lbl">Total Semua</span>
+    </div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="search-box">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/></svg>
+      <input type="text" id="search-input" placeholder="Cari no. permintaan, nama barang, pemohon..." oninput="filterTable()"/>
+    </div>
+    <button class="filter-btn active" onclick="setFilter('semua', this)">Semua</button>
+    <button class="filter-btn" onclick="setFilter('pending', this)">Perlu Aksi</button>
+    <button class="filter-btn" onclick="setFilter('selesai', this)">Selesai</button>
+  </div>
+
+  <!-- TABLE -->
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>No. Permintaan</th>
+            <th>Tgl Input</th>
+            <th>Lokasi</th>
+            <th>Pemohon</th>
+            <th>Barang</th>
+            <th>Jml</th>
+            <th>Prioritas</th>
+            <th>Status</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tabel-approval">
+          <tr><td colspan="9"><div class="empty-state"><p>Memuat data...</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- MODAL DETAIL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal" id="modal">
+    <div class="modal-head">
+      <h3 id="modal-title">Detail Permintaan</h3>
+      <button class="btn-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-grid" id="detail-grid"></div>
+
+      <div class="approval-section" id="approval-section">
+        <h4 id="approval-title">Keputusan Anda</h4>
+        <label for="catatan-approval">Catatan / Alasan <span style="font-weight:400;color:var(--muted)">(wajib jika tolak)</span></label>
+        <textarea id="catatan-approval" placeholder="Tambahkan catatan atau alasan keputusan..."></textarea>
+        <div class="modal-actions">
+          <button class="btn-modal-reject" id="btn-reject-modal" onclick="prosesApproval('Rejected')">
+            ✕ Tolak
+          </button>
+          <button class="btn-modal-approve" id="btn-approve-modal" onclick="prosesApproval('Approve')">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            Setujui
+          </button>
+        </div>
+      </div>
+
+      <div class="history-log" id="history-log"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+
+let currentUser = null;
+let allDocs     = [];
+let activeFilter = 'semua';
+let selectedDoc  = null;
+
+// ── Auth guard ──
+auth.onAuthStateChanged(async user => {
+  if (!user) { window.location.href = 'index.html'; return; }
+  currentUser = await getCurrentUserInfo();
+  if (!currentUser || !['kepala_gudang', 'manager'].includes(currentUser.role)) {
+    window.location.href = 'index.html'; return;
+  }
+  initPage();
+  loadData();
+});
+
+function initPage() {
+  document.getElementById('user-chip').textContent = currentUser.nama;
+  const isManager = currentUser.role === 'manager';
+  const chip = document.getElementById('role-chip');
+  chip.textContent = isManager ? 'Manager' : 'Kepala Gudang';
+  if (isManager) chip.classList.add('manager');
+  document.getElementById('page-title').textContent =
+    isManager ? 'Dashboard Approval — Manager' : 'Dashboard Approval — Kepala Gudang';
+}
+
+// ── Load semua data real-time ──
+function loadData() {
+  db.collection('permintaan')
+    .orderBy('tanggalInput', 'desc')
+    .onSnapshot(snap => {
+      allDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      updateStats();
+      renderTable();
+    });
+}
+
+// ── Stats ──
+function updateStats() {
+  const isKepGudang = currentUser.role === 'kepala_gudang';
+  const needAction  = allDocs.filter(d =>
+    isKepGudang ? d.status === 'Pending' : d.status === 'Approved1'
+  ).length;
+  const approved = allDocs.filter(d => ['Approved1','Approved2','Purchased','Received'].includes(d.status)).length;
+  const rejected = allDocs.filter(d => d.status === 'Rejected').length;
+  document.getElementById('cnt-pending').textContent  = needAction;
+  document.getElementById('cnt-approved').textContent = approved;
+  document.getElementById('cnt-rejected').textContent = rejected;
+  document.getElementById('cnt-all').textContent      = allDocs.length;
+}
+
+// ── Filter & Render ──
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
+function filterTable() { renderTable(); }
+
+function getFilteredDocs() {
+  const isKepGudang = currentUser.role === 'kepala_gudang';
+  const q = document.getElementById('search-input').value.toLowerCase();
+
+  return allDocs.filter(d => {
+    // Filter status
+    if (activeFilter === 'pending') {
+      if (isKepGudang && d.status !== 'Pending') return false;
+      if (!isKepGudang && d.status !== 'Approved1') return false;
+    }
+    if (activeFilter === 'selesai') {
+      if (!['Approved2','Rejected','Purchased','Received'].includes(d.status)) return false;
+    }
+    // Search
+    if (q) {
+      const hay = [d.noPerm, d.namaBarang, d.requester, d.lokasi, d.petugasInput].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderTable() {
+  const docs  = getFilteredDocs();
+  const tbody = document.getElementById('tabel-approval');
+  const isKepGudang = currentUser.role === 'kepala_gudang';
+
+  if (!docs.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      <p>Tidak ada data yang sesuai</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = docs.map(d => {
+    const tgl      = d.tanggalInput?.toDate ? formatTgl(d.tanggalInput.toDate()) : '—';
+    const canAct   = isKepGudang ? d.status === 'Pending' : d.status === 'Approved1';
+    const actions  = canAct
+      ? `<div class="btn-actions">
+           <button class="btn-approve" onclick="openModal('${d.id}')">Proses</button>
+         </div>`
+      : `<button class="btn-detail" onclick="openModal('${d.id}')">Detail</button>`;
+
+    return `<tr>
+      <td><b style="font-size:.82rem">${d.noPerm}</b></td>
+      <td style="white-space:nowrap;font-size:.82rem">${tgl}</td>
+      <td style="font-size:.82rem">${d.lokasi?.split('—')[0]?.trim() || d.lokasi}</td>
+      <td>
+        <div style="font-weight:600;font-size:.86rem">${d.requester}</div>
+        <div style="font-size:.78rem;color:var(--muted)">${d.petugasInput}</div>
+      </td>
+      <td>
+        <div style="font-weight:600;font-size:.86rem">${d.namaBarang}</div>
+        <div style="font-size:.78rem;color:var(--muted)">${d.keperluan}</div>
+      </td>
+      <td style="white-space:nowrap;font-size:.86rem">${d.jumlah} ${d.satuan}</td>
+      <td class="pr-${d.prioritas?.toLowerCase()}">${d.prioritas}</td>
+      <td>${badgeStatus(d.status)}</td>
+      <td>${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Modal ──
+function openModal(id) {
+  selectedDoc = allDocs.find(d => d.id === id);
+  if (!selectedDoc) return;
+
+  const d = selectedDoc;
+  const isKepGudang = currentUser.role === 'kepala_gudang';
+  const canAct = isKepGudang ? d.status === 'Pending' : d.status === 'Approved1';
+
+  document.getElementById('modal-title').textContent = `Detail — ${d.noPerm}`;
+  document.getElementById('catatan-approval').value = '';
+
+  // Detail grid
+  document.getElementById('detail-grid').innerHTML = `
+    <div class="detail-item"><span class="lbl">No. Permintaan</span><span class="val">${d.noPerm}</span></div>
+    <div class="detail-item"><span class="lbl">Tanggal Input</span><span class="val">${d.tanggalInput?.toDate ? formatTglLong(d.tanggalInput.toDate()) : '—'}</span></div>
+    <div class="detail-item"><span class="lbl">Lokasi / Gedung</span><span class="val">${d.lokasi}</span></div>
+    <div class="detail-item"><span class="lbl">Pemohon</span><span class="val">${d.requester}</span></div>
+    <div class="detail-item"><span class="lbl">Petugas Input</span><span class="val">${d.petugasInput}</span></div>
+    <div class="detail-item"><span class="lbl">Prioritas</span><span class="val pr-${d.prioritas?.toLowerCase()}">${d.prioritas}</span></div>
+    <div class="detail-item full"><span class="lbl">Nama Barang</span><span class="val" style="font-size:1rem;font-weight:700">${d.namaBarang}</span></div>
+    <div class="detail-item"><span class="lbl">Jumlah</span><span class="val">${d.jumlah} ${d.satuan}</span></div>
+    <div class="detail-item"><span class="lbl">Kebutuhan</span><span class="val">${d.keperluan}</span></div>
+    <div class="detail-item full"><span class="lbl">Keterangan</span><span class="val">${d.keterangan || '—'}</span></div>
+    <div class="detail-item full"><span class="lbl">Status Saat Ini</span><span class="val">${badgeStatus(d.status)}</span></div>
+  `;
+
+  // Approval section — tampil hanya jika bisa aksi
+  const apvSec = document.getElementById('approval-section');
+  if (canAct) {
+    apvSec.style.display = '';
+    document.getElementById('approval-title').textContent =
+      isKepGudang ? 'Keputusan Kepala Gudang' : 'Keputusan Manager';
+  } else {
+    apvSec.style.display = 'none';
+  }
+
+  // History log
+  renderHistory(d);
+
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function renderHistory(d) {
+  const logs = [];
+  logs.push({ dot: 'yellow', text: `<strong>${d.petugasInput}</strong> mengajukan permintaan pada ${d.tanggalInput?.toDate ? formatTglLong(d.tanggalInput.toDate()) : '—'}` });
+
+  if (d.approvalKepGudang) {
+    const approved = d.approvalKepGudang.keputusan === 'Approve';
+    logs.push({
+      dot: approved ? 'green' : 'red',
+      text: `<strong>Kepala Gudang (${d.approvalKepGudang.nama})</strong> ${approved ? 'menyetujui' : 'menolak'} pada ${formatTglLong(d.approvalKepGudang.waktu?.toDate())} — "${d.approvalKepGudang.catatan || 'tidak ada catatan'}"`
+    });
+  }
+  if (d.approvalManager) {
+    const approved = d.approvalManager.keputusan === 'Approve';
+    logs.push({
+      dot: approved ? 'green' : 'red',
+      text: `<strong>Manager (${d.approvalManager.nama})</strong> ${approved ? 'menyetujui' : 'menolak'} pada ${formatTglLong(d.approvalManager.waktu?.toDate())} — "${d.approvalManager.catatan || 'tidak ada catatan'}"`
+    });
+  }
+
+  document.getElementById('history-log').innerHTML = logs.length
+    ? `<h4>Riwayat Proses</h4>${logs.map(l => `<div class="log-item"><div class="log-dot ${l.dot}"></div><div class="log-content">${l.text}</div></div>`).join('')}`
+    : '';
+}
+
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); selectedDoc = null; }
+function closeModalOutside(e) { if (e.target === document.getElementById('modal-overlay')) closeModal(); }
+
+// ── Proses Approval ──
+async function prosesApproval(keputusan) {
+  if (!selectedDoc) return;
+  const catatan = document.getElementById('catatan-approval').value.trim();
+  if (keputusan === 'Rejected' && !catatan) {
+    showToast('Wajib isi alasan penolakan.', 'error'); return;
+  }
+
+  const isKepGudang = currentUser.role === 'kepala_gudang';
+  const approvalData = { keputusan, nama: currentUser.nama, email: currentUser.email, catatan, waktu: firebase.firestore.FieldValue.serverTimestamp() };
+
+  let newStatus, newLabel;
+  if (keputusan === 'Rejected') {
+    newStatus = 'Rejected'; newLabel = `Ditolak oleh ${isKepGudang ? 'Kepala Gudang' : 'Manager'}`;
+  } else {
+    if (isKepGudang) { newStatus = 'Approved1'; newLabel = 'Menunggu Approval Manager'; }
+    else             { newStatus = 'Approved2'; newLabel = 'Disetujui — Menunggu Pembelian'; }
+  }
+
+  setModalLoading(true);
+  try {
+    const updateData = {
+      status: newStatus,
+      statusLabel: newLabel,
+      catatanApproval: catatan,
+      syncedToSheets: false,
+    };
+    if (isKepGudang) updateData.approvalKepGudang = approvalData;
+    else             updateData.approvalManager   = approvalData;
+
+    await db.collection('permintaan').doc(selectedDoc.id).update(updateData);
+    showToast(keputusan === 'Rejected' ? '✕ Permintaan ditolak' : '✓ Permintaan disetujui', keputusan === 'Rejected' ? 'error' : 'success');
+    closeModal();
+  } catch (e) {
+    console.error(e); showToast('Gagal menyimpan. Coba lagi.', 'error');
+  }
+  setModalLoading(false);
+}
+
+// ── Helpers ──
+function setModalLoading(on) {
+  document.getElementById('btn-approve-modal').disabled = on;
+  document.getElementById('btn-reject-modal').disabled  = on;
+  document.getElementById('btn-approve-modal').innerHTML = on
+    ? '<div class="spinner"></div> Memproses...'
+    : '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Setujui';
+}
+
+function badgeStatus(s) {
+  const map = {
+    'Pending':   ['badge-pending',   'Menunggu Kep. Gudang'],
+    'Approved1': ['badge-approved1', 'Menunggu Manager'],
+    'Approved2': ['badge-approved2', 'Siap Dibeli'],
+    'Rejected':  ['badge-rejected',  'Ditolak'],
+    'Purchased': ['badge-purchased', 'Sudah Dibeli'],
+    'Received':  ['badge-received',  'Diterima Gudang'],
+  };
+  const [cls, lbl] = map[s] || ['badge-pending', s];
+  return `<span class="badge ${cls}">${lbl}</span>`;
+}
+
+function formatTgl(d)     { return d.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' }); }
+function formatTglLong(d) { if (!d) return '—'; return d.toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' }); }
+
+let toastTimer;
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 3500);
+}
+
+function logout() { auth.signOut().then(() => window.location.href = 'index.html'); }
+
+</script>
+</body>
+</html>

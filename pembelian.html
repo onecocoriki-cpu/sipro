@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pembelian — SiPro</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary:    #1a56db; --primary-h: #1648c0; --primary-bg: #eff6ff;
+      --success:    #057a55; --success-bg: #f0fdf4; --success-h: #046c4e;
+      --danger:     #e02424; --danger-bg: #fef2f2;
+      --purple:     #6b21a8; --purple-bg: #f3e8ff;
+      --text:       #111928; --muted: #6b7280;
+      --border:     #e5e7eb; --bg: #f3f4f6; --white: #ffffff;
+      --radius:     10px; --shadow: 0 2px 12px rgba(0,0,0,.07);
+    }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    nav {
+      background: var(--white); border-bottom: 1px solid var(--border);
+      padding: .85rem 1.5rem; display: flex; align-items: center;
+      justify-content: space-between; position: sticky; top: 0; z-index: 100;
+    }
+    .nav-brand { display: flex; align-items: center; gap: 10px; }
+    .nav-logo { width: 36px; height: 36px; background: var(--purple); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .nav-logo svg { width: 20px; height: 20px; fill: white; }
+    .nav-brand span { font-size: 1rem; font-weight: 700; }
+    .nav-brand small { font-size: .75rem; color: var(--muted); display: block; }
+    .nav-right { display: flex; align-items: center; gap: 10px; }
+    .role-chip { background: var(--purple-bg); color: var(--purple); border-radius: 20px; padding: .3rem .85rem; font-size: .8rem; font-weight: 700; }
+    .user-chip { background: var(--bg); border-radius: 20px; padding: .3rem .85rem; font-size: .82rem; font-weight: 600; }
+    .btn-logout { background: none; border: 1.5px solid var(--border); border-radius: var(--radius); padding: .3rem .75rem; font-size: .82rem; color: var(--muted); cursor: pointer; transition: all .2s; }
+    .btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+    .page-header { margin-bottom: 1.5rem; }
+    .page-header h1 { font-size: 1.5rem; font-weight: 700; }
+    .page-header p { color: var(--muted); font-size: .875rem; margin-top: .25rem; }
+
+    /* TABS */
+    .tabs { display: flex; gap: .5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .tab { padding: .45rem 1.1rem; border-radius: 20px; font-size: .85rem; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); background: var(--white); color: var(--muted); transition: all .2s; }
+    .tab.active { background: var(--purple); color: white; border-color: var(--purple); }
+
+    /* STATS */
+    .stats-bar { display: flex; gap: 1rem; margin-bottom: 1.75rem; flex-wrap: wrap; }
+    .stat-card { background: var(--white); border-radius: 12px; padding: .9rem 1.25rem; flex: 1; min-width: 110px; box-shadow: var(--shadow); }
+    .stat-card .num { font-size: 1.75rem; font-weight: 800; line-height: 1; }
+    .stat-card .lbl { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+    .stat-card.ready .num    { color: var(--primary); }
+    .stat-card.process .num  { color: var(--purple); }
+    .stat-card.done .num     { color: var(--success); }
+    .stat-card.synced .num   { color: #16a34a; }
+
+    /* TOOLBAR */
+    .toolbar { display: flex; gap: .75rem; margin-bottom: 1.25rem; flex-wrap: wrap; align-items: center; }
+    .search-box { flex: 1; min-width: 200px; position: relative; }
+    .search-box input { width: 100%; padding: .6rem .9rem .6rem 2.4rem; border: 1.5px solid var(--border); border-radius: var(--radius); font-size: .9rem; outline: none; transition: border-color .2s; }
+    .search-box input:focus { border-color: var(--purple); }
+    .search-box svg { position: absolute; left: .75rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--muted); }
+    .btn-sheets { padding: .55rem 1.1rem; background: #16a34a; color: white; border: none; border-radius: var(--radius); font-size: .85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background .2s; }
+    .btn-sheets:hover { background: #15803d; }
+    .btn-sheets:disabled { opacity: .6; cursor: not-allowed; }
+
+    /* TABLE */
+    .card { background: var(--white); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+    th { background: var(--bg); padding: .65rem .9rem; text-align: left; font-weight: 600; color: var(--muted); font-size: .78rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: .7rem .9rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+
+    .badge { display: inline-flex; align-items: center; padding: .25rem .7rem; border-radius: 20px; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+    .badge-approved2 { background: var(--success-bg); color: var(--success); }
+    .badge-purchased { background: var(--purple-bg); color: var(--purple); }
+    .badge-received  { background: #dcfce7; color: #14532d; }
+    .badge-rejected  { background: var(--danger-bg); color: var(--danger); }
+    .badge-synced    { background: #dcfce7; color: #14532d; font-size: .7rem; }
+    .badge-unsynced  { background: #fef3c7; color: #92400e; font-size: .7rem; }
+
+    .pr-low    { color: #16a34a; font-weight: 700; font-size: .82rem; }
+    .pr-medium { color: #2563eb; font-weight: 700; font-size: .82rem; }
+    .pr-high   { color: #d97706; font-weight: 700; font-size: .82rem; }
+    .pr-urgent { color: #dc2626; font-weight: 700; font-size: .82rem; }
+
+    .btn-proses  { padding: .38rem .85rem; background: var(--purple); color: white; border: none; border-radius: 6px; font-size: .8rem; font-weight: 600; cursor: pointer; transition: background .2s; }
+    .btn-proses:hover { background: #5b21b6; }
+    .btn-terima  { padding: .38rem .85rem; background: var(--success); color: white; border: none; border-radius: 6px; font-size: .8rem; font-weight: 600; cursor: pointer; transition: background .2s; }
+    .btn-terima:hover { background: var(--success-h); }
+    .btn-detail  { padding: .38rem .75rem; background: var(--bg); color: var(--muted); border: 1.5px solid var(--border); border-radius: 6px; font-size: .8rem; cursor: pointer; transition: all .2s; }
+    .btn-detail:hover { border-color: var(--purple); color: var(--purple); }
+
+    .empty-state { text-align: center; padding: 4rem 1rem; color: var(--muted); }
+    .empty-state svg { width: 52px; height: 52px; margin-bottom: 1rem; opacity: .35; }
+
+    /* MODAL */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; display: none; align-items: center; justify-content: center; padding: 1rem; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--white); border-radius: 16px; width: 100%; max-width: 640px; max-height: 92vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.2); animation: popIn .2s ease; }
+    @keyframes popIn { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .modal-head { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--white); z-index: 1; }
+    .modal-head h3 { font-size: 1.05rem; font-weight: 700; }
+    .btn-close { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 1.4rem; line-height: 1; }
+    .btn-close:hover { color: var(--danger); }
+    .modal-body { padding: 1.5rem; }
+
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; margin-bottom: 1.25rem; }
+    .detail-item { display: flex; flex-direction: column; gap: 3px; }
+    .detail-item .lbl { font-size: .75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+    .detail-item .val { font-size: .9rem; color: var(--text); font-weight: 500; }
+    .detail-item.full { grid-column: 1 / -1; }
+
+    /* FORM PEMBELIAN */
+    .section-box { background: var(--bg); border-radius: 10px; padding: 1.1rem; margin-top: 1rem; }
+    .section-box h4 { font-size: .9rem; font-weight: 700; margin-bottom: 1rem; }
+    .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; }
+    .form-grid-2 .full { grid-column: 1 / -1; }
+    .field label { display: block; font-size: .82rem; font-weight: 600; margin-bottom: .3rem; }
+    .field label .req { color: var(--danger); }
+    .field input, .field select, .field textarea {
+      width: 100%; padding: .6rem .85rem;
+      border: 1.5px solid var(--border); border-radius: var(--radius);
+      font-size: .875rem; font-family: inherit; outline: none;
+      transition: border-color .2s; background: var(--white);
+    }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--purple); }
+    .field textarea { resize: vertical; min-height: 65px; }
+
+    /* FORM PENERIMAAN */
+    .penerimaan-form { background: var(--success-bg); border: 1px solid #bbf7d0; border-radius: 10px; padding: 1.1rem; margin-top: 1rem; }
+    .penerimaan-form h4 { font-size: .9rem; font-weight: 700; color: var(--success); margin-bottom: 1rem; }
+
+    .modal-actions { display: flex; gap: .75rem; margin-top: 1.1rem; justify-content: flex-end; flex-wrap: wrap; }
+    .btn-primary { padding: .65rem 1.5rem; background: var(--purple); color: white; border: none; border-radius: var(--radius); font-size: .9rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background .2s; }
+    .btn-primary:hover { background: #5b21b6; }
+    .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-success { padding: .65rem 1.5rem; background: var(--success); color: white; border: none; border-radius: var(--radius); font-size: .9rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background .2s; }
+    .btn-success:hover { background: var(--success-h); }
+    .btn-success:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-secondary { padding: .65rem 1.25rem; background: var(--white); color: var(--muted); border: 1.5px solid var(--border); border-radius: var(--radius); font-size: .9rem; font-weight: 600; cursor: pointer; transition: all .2s; }
+    .btn-secondary:hover { border-color: #9ca3af; color: var(--text); }
+
+    /* HISTORY */
+    .history-log { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+    .history-log h4 { font-size: .85rem; font-weight: 700; color: var(--muted); margin-bottom: .75rem; }
+    .log-item { display: flex; gap: 10px; margin-bottom: .65rem; font-size: .83rem; }
+    .log-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex-shrink: 0; margin-top: 5px; }
+    .log-dot.green { background: var(--success); }
+    .log-dot.purple { background: var(--purple); }
+    .log-dot.yellow { background: #d97706; }
+    .log-content { line-height: 1.5; color: var(--muted); }
+    .log-content strong { color: var(--text); }
+
+    /* TOAST */
+    #toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(80px); background: #1f2937; color: white; padding: .85rem 1.5rem; border-radius: 10px; font-size: .9rem; font-weight: 500; opacity: 0; transition: all .35s; z-index: 999; white-space: nowrap; }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    #toast.success { background: var(--success); }
+    #toast.error   { background: var(--danger); }
+
+    .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.4); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 640px) {
+      .form-grid-2 { grid-template-columns: 1fr; }
+      .form-grid-2 .full { grid-column: 1; }
+      .detail-grid { grid-template-columns: 1fr; }
+      .modal-actions { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <div class="nav-logo"><svg viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg></div>
+    <div><span>SiPro</span><small>Sistem Procurement Internal</small></div>
+  </div>
+  <div class="nav-right">
+    <span class="role-chip">Bagian Pembelian</span>
+    <span class="user-chip" id="user-chip">Memuat...</span>
+    <button class="btn-logout" onclick="logout()">Keluar</button>
+  </div>
+</nav>
+
+<main>
+  <div class="page-header">
+    <h1>Dashboard Pembelian</h1>
+    <p>Proses pembelian barang yang telah disetujui dan catat penerimaan ke gudang</p>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-bar">
+    <div class="stat-card ready">
+      <div class="num" id="cnt-ready">0</div>
+      <div class="lbl">Siap Diproses</div>
+    </div>
+    <div class="stat-card process">
+      <div class="num" id="cnt-process">0</div>
+      <div class="lbl">Sudah Dibeli</div>
+    </div>
+    <div class="stat-card done">
+      <div class="num" id="cnt-done">0</div>
+      <div class="lbl">Diterima Gudang</div>
+    </div>
+    <div class="stat-card synced">
+      <div class="num" id="cnt-synced">0</div>
+      <div class="lbl">Tersync ke Sheets</div>
+    </div>
+  </div>
+
+  <!-- TABS & TOOLBAR -->
+  <div class="tabs">
+    <button class="tab active" onclick="setFilter('ready', this)">Siap Diproses</button>
+    <button class="tab" onclick="setFilter('purchased', this)">Sudah Dibeli</button>
+    <button class="tab" onclick="setFilter('received', this)">Diterima Gudang</button>
+    <button class="tab" onclick="setFilter('all', this)">Semua</button>
+  </div>
+
+  <div class="toolbar">
+    <div class="search-box">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/></svg>
+      <input type="text" id="search-input" placeholder="Cari no. permintaan, barang, pemohon..." oninput="renderTable()"/>
+    </div>
+    <button class="btn-sheets" id="btn-sync-all" onclick="syncAllToSheets()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      Sync ke Google Sheets
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>No. Permintaan</th>
+            <th>Tgl Disetujui</th>
+            <th>Lokasi</th>
+            <th>Pemohon</th>
+            <th>Barang</th>
+            <th>Jml</th>
+            <th>Prioritas</th>
+            <th>Status</th>
+            <th>Sheets</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tabel-pembelian">
+          <tr><td colspan="10"><div class="empty-state"><p>Memuat data...</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modal-title">Detail Permintaan</h3>
+      <button class="btn-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-grid" id="detail-grid"></div>
+
+      <!-- Form Pembelian -->
+      <div class="section-box" id="form-beli" style="display:none">
+        <h4>📦 Input Data Pembelian</h4>
+        <div class="form-grid-2">
+          <div class="field">
+            <label for="supplier">Nama Supplier <span class="req">*</span></label>
+            <input type="text" id="supplier" placeholder="CV / PT Supplier..."/>
+          </div>
+          <div class="field">
+            <label for="no-po">Nomor PO / Invoice <span class="req">*</span></label>
+            <input type="text" id="no-po" placeholder="PO-2025-001"/>
+          </div>
+          <div class="field">
+            <label for="harga-satuan">Harga Satuan (Rp) <span class="req">*</span></label>
+            <input type="number" id="harga-satuan" placeholder="0" min="0" oninput="hitungTotal()"/>
+          </div>
+          <div class="field">
+            <label for="total-harga">Total Harga (Rp)</label>
+            <input type="number" id="total-harga" placeholder="0" readonly style="background:var(--bg)"/>
+          </div>
+          <div class="field">
+            <label for="tgl-beli">Tanggal Beli <span class="req">*</span></label>
+            <input type="date" id="tgl-beli"/>
+          </div>
+          <div class="field">
+            <label for="estimasi-terima">Estimasi Tiba</label>
+            <input type="date" id="estimasi-terima"/>
+          </div>
+          <div class="field full">
+            <label for="catatan-beli">Catatan Pembelian</label>
+            <textarea id="catatan-beli" placeholder="Catatan tambahan, kondisi barang, dsb..."></textarea>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="closeModal()">Batal</button>
+          <button class="btn-primary" id="btn-simpan-beli" onclick="simpanPembelian()">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            Konfirmasi Sudah Dibeli
+          </button>
+        </div>
+      </div>
+
+      <!-- Form Penerimaan Gudang -->
+      <div class="penerimaan-form" id="form-terima" style="display:none">
+        <h4>✅ Konfirmasi Penerimaan Gudang</h4>
+        <div class="form-grid-2">
+          <div class="field">
+            <label for="jml-diterima">Jumlah Diterima <span class="req">*</span></label>
+            <input type="number" id="jml-diterima" placeholder="0" min="1"/>
+          </div>
+          <div class="field">
+            <label for="tgl-terima">Tanggal Diterima <span class="req">*</span></label>
+            <input type="date" id="tgl-terima"/>
+          </div>
+          <div class="field">
+            <label for="kondisi">Kondisi Barang</label>
+            <select id="kondisi">
+              <option>Baik / Sesuai</option>
+              <option>Baik tapi Kurang Jumlah</option>
+              <option>Ada Kerusakan</option>
+              <option>Tidak Sesuai Spesifikasi</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="penerima">Diterima Oleh <span class="req">*</span></label>
+            <input type="text" id="penerima" placeholder="Nama penerima di gudang"/>
+          </div>
+          <div class="field full">
+            <label for="catatan-terima">Catatan Penerimaan</label>
+            <textarea id="catatan-terima" placeholder="Catatan kondisi barang, kekurangan, dsb..."></textarea>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="closeModal()">Batal</button>
+          <button class="btn-success" id="btn-simpan-terima" onclick="simpanPenerimaan()">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            Konfirmasi Diterima Gudang
+          </button>
+        </div>
+      </div>
+
+      <!-- History log -->
+      <div class="history-log" id="history-log"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+
+// ============================================================
+//  GANTI INI dengan URL Google Apps Script Anda (Tahap 3 setup)
+// ============================================================
+const APPS_SCRIPT_URL = 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA';
+
+let currentUser  = null;
+let allDocs      = [];
+let activeFilter = 'ready';
+let selectedDoc  = null;
+
+auth.onAuthStateChanged(async user => {
+  if (!user) { window.location.href = 'index.html'; return; }
+  currentUser = await getCurrentUserInfo();
+  if (!currentUser || currentUser.role !== 'pembelian') {
+    window.location.href = 'index.html'; return;
+  }
+  document.getElementById('user-chip').textContent = currentUser.nama;
+  loadData();
+});
+
+function loadData() {
+  db.collection('permintaan')
+    .orderBy('tanggalInput', 'desc')
+    .onSnapshot(snap => {
+      allDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      updateStats();
+      renderTable();
+    });
+}
+
+function updateStats() {
+  document.getElementById('cnt-ready').textContent   = allDocs.filter(d => d.status === 'Approved2').length;
+  document.getElementById('cnt-process').textContent = allDocs.filter(d => d.status === 'Purchased').length;
+  document.getElementById('cnt-done').textContent    = allDocs.filter(d => d.status === 'Received').length;
+  document.getElementById('cnt-synced').textContent  = allDocs.filter(d => d.syncedToSheets).length;
+}
+
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
+function getFiltered() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  return allDocs.filter(d => {
+    const statusOk = {
+      ready:     d.status === 'Approved2',
+      purchased: d.status === 'Purchased',
+      received:  d.status === 'Received',
+      all:       ['Approved2','Purchased','Received'].includes(d.status),
+    }[activeFilter] ?? false;
+    if (!statusOk) return false;
+    if (q) {
+      const hay = [d.noPerm, d.namaBarang, d.requester, d.lokasi].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderTable() {
+  const docs  = getFiltered();
+  const tbody = document.getElementById('tabel-pembelian');
+  if (!docs.length) {
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+      <p>Tidak ada data</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = docs.map(d => {
+    const tgl = d.approvalManager?.waktu?.toDate ? formatTgl(d.approvalManager.waktu.toDate()) : '—';
+    let aksi = '';
+    if (d.status === 'Approved2')  aksi = `<button class="btn-proses" onclick="openModal('${d.id}','beli')">Proses Beli</button>`;
+    else if (d.status === 'Purchased') aksi = `<button class="btn-terima" onclick="openModal('${d.id}','terima')">Konfirmasi Terima</button>`;
+    else aksi = `<button class="btn-detail" onclick="openModal('${d.id}','detail')">Detail</button>`;
+
+    const syncBadge = d.syncedToSheets
+      ? `<span class="badge badge-synced">✓ Synced</span>`
+      : `<span class="badge badge-unsynced">Belum</span>`;
+
+    return `<tr>
+      <td><b style="font-size:.82rem">${d.noPerm}</b></td>
+      <td style="font-size:.82rem;white-space:nowrap">${tgl}</td>
+      <td style="font-size:.82rem">${d.lokasi?.split('—')[0]?.trim() || d.lokasi}</td>
+      <td><div style="font-weight:600;font-size:.86rem">${d.requester}</div><div style="font-size:.78rem;color:var(--muted)">${d.petugasInput}</div></td>
+      <td><div style="font-weight:600;font-size:.86rem">${d.namaBarang}</div><div style="font-size:.78rem;color:var(--muted)">${d.keperluan}</div></td>
+      <td style="font-size:.86rem;white-space:nowrap">${d.jumlah} ${d.satuan}</td>
+      <td class="pr-${d.prioritas?.toLowerCase()}">${d.prioritas}</td>
+      <td>${badgeStatus(d.status)}</td>
+      <td>${syncBadge}</td>
+      <td>${aksi}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Modal ──
+function openModal(id, mode) {
+  selectedDoc = allDocs.find(d => d.id === id);
+  if (!selectedDoc) return;
+  const d = selectedDoc;
+
+  document.getElementById('modal-title').textContent = `${d.noPerm} — ${mode === 'beli' ? 'Proses Pembelian' : mode === 'terima' ? 'Konfirmasi Penerimaan' : 'Detail'}`;
+  document.getElementById('form-beli').style.display   = mode === 'beli'   ? '' : 'none';
+  document.getElementById('form-terima').style.display = mode === 'terima' ? '' : 'none';
+
+  // Set default dates
+  if (mode === 'beli')   { document.getElementById('tgl-beli').valueAsDate = new Date(); hitungTotal(); }
+  if (mode === 'terima') { document.getElementById('tgl-terima').valueAsDate = new Date(); document.getElementById('jml-diterima').value = d.jumlah; }
+
+  document.getElementById('detail-grid').innerHTML = `
+    <div class="detail-item"><span class="lbl">No. Permintaan</span><span class="val">${d.noPerm}</span></div>
+    <div class="detail-item"><span class="lbl">Prioritas</span><span class="val pr-${d.prioritas?.toLowerCase()}">${d.prioritas}</span></div>
+    <div class="detail-item"><span class="lbl">Lokasi</span><span class="val">${d.lokasi}</span></div>
+    <div class="detail-item"><span class="lbl">Pemohon</span><span class="val">${d.requester}</span></div>
+    <div class="detail-item full"><span class="lbl">Nama Barang</span><span class="val" style="font-size:1rem;font-weight:700">${d.namaBarang}</span></div>
+    <div class="detail-item"><span class="lbl">Jumlah</span><span class="val">${d.jumlah} ${d.satuan}</span></div>
+    <div class="detail-item"><span class="lbl">Kebutuhan</span><span class="val">${d.keperluan}</span></div>
+    <div class="detail-item full"><span class="lbl">Keterangan</span><span class="val">${d.keterangan || '—'}</span></div>
+    ${d.pembelian ? `
+    <div class="detail-item"><span class="lbl">Supplier</span><span class="val">${d.pembelian.supplier}</span></div>
+    <div class="detail-item"><span class="lbl">No. PO</span><span class="val">${d.pembelian.noPO}</span></div>
+    <div class="detail-item"><span class="lbl">Harga Satuan</span><span class="val">${formatRp(d.pembelian.hargaSatuan)}</span></div>
+    <div class="detail-item"><span class="lbl">Total Harga</span><span class="val" style="font-weight:700;color:var(--purple)">${formatRp(d.pembelian.totalHarga)}</span></div>
+    ` : ''}
+    <div class="detail-item full"><span class="lbl">Status</span><span class="val">${badgeStatus(d.status)}</span></div>
+  `;
+
+  renderHistory(d);
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function renderHistory(d) {
+  const logs = [];
+  logs.push({ dot: 'yellow', text: `<strong>${d.petugasInput}</strong> mengajukan permintaan` });
+  if (d.approvalKepGudang) {
+    const ok = d.approvalKepGudang.keputusan === 'Approve';
+    logs.push({ dot: ok ? 'green' : 'red', text: `<strong>Kepala Gudang (${d.approvalKepGudang.nama})</strong> ${ok ? 'menyetujui' : 'menolak'}${d.approvalKepGudang.catatan ? ' — "' + d.approvalKepGudang.catatan + '"' : ''}` });
+  }
+  if (d.approvalManager) {
+    const ok = d.approvalManager.keputusan === 'Approve';
+    logs.push({ dot: ok ? 'green' : 'red', text: `<strong>Manager (${d.approvalManager.nama})</strong> ${ok ? 'menyetujui' : 'menolak'}${d.approvalManager.catatan ? ' — "' + d.approvalManager.catatan + '"' : ''}` });
+  }
+  if (d.pembelian) {
+    logs.push({ dot: 'purple', text: `<strong>Pembelian (${d.pembelian.oleh})</strong> memproses pembelian dari <strong>${d.pembelian.supplier}</strong> — ${formatRp(d.pembelian.totalHarga)}` });
+  }
+  if (d.penerimaan) {
+    logs.push({ dot: 'green', text: `<strong>Gudang (${d.penerimaan.penerima})</strong> menerima ${d.penerimaan.jumlahDiterima} ${d.satuan} — Kondisi: ${d.penerimaan.kondisi}` });
+  }
+
+  document.getElementById('history-log').innerHTML = logs.length
+    ? `<h4>Riwayat Proses</h4>${logs.map(l => `<div class="log-item"><div class="log-dot ${l.dot}"></div><div class="log-content">${l.text}</div></div>`).join('')}`
+    : '';
+}
+
+function hitungTotal() {
+  const harga = parseFloat(document.getElementById('harga-satuan').value) || 0;
+  const jml   = selectedDoc?.jumlah || 0;
+  document.getElementById('total-harga').value = harga * jml;
+}
+
+// ── Simpan Pembelian ──
+async function simpanPembelian() {
+  const supplier    = document.getElementById('supplier').value.trim();
+  const noPO        = document.getElementById('no-po').value.trim();
+  const hargaSatuan = parseFloat(document.getElementById('harga-satuan').value) || 0;
+  const tglBeli     = document.getElementById('tgl-beli').value;
+
+  if (!supplier || !noPO || !hargaSatuan || !tglBeli) { showToast('Lengkapi semua field wajib.', 'error'); return; }
+
+  document.getElementById('btn-simpan-beli').disabled = true;
+  document.getElementById('btn-simpan-beli').innerHTML = '<div class="spinner"></div> Menyimpan...';
+
+  try {
+    await db.collection('permintaan').doc(selectedDoc.id).update({
+      status:      'Purchased',
+      statusLabel: 'Sudah Dibeli — Menunggu Penerimaan Gudang',
+      syncedToSheets: false,
+      pembelian: {
+        supplier, noPO,
+        hargaSatuan,
+        totalHarga:  hargaSatuan * selectedDoc.jumlah,
+        tglBeli,
+        estimasiTiba: document.getElementById('estimasi-terima').value || null,
+        catatanBeli:  document.getElementById('catatan-beli').value.trim(),
+        oleh:         currentUser.nama,
+        olehEmail:    currentUser.email,
+        waktu:        firebase.firestore.FieldValue.serverTimestamp(),
+      }
+    });
+    showToast('✓ Data pembelian tersimpan!', 'success');
+    closeModal();
+    // Auto sync ke sheets
+    setTimeout(() => syncSingleToSheets(selectedDoc.id), 1000);
+  } catch (e) { console.error(e); showToast('Gagal menyimpan. Coba lagi.', 'error'); }
+
+  document.getElementById('btn-simpan-beli').disabled = false;
+  document.getElementById('btn-simpan-beli').innerHTML = '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Sudah Dibeli';
+}
+
+// ── Simpan Penerimaan ──
+async function simpanPenerimaan() {
+  const jmlDiterima = parseInt(document.getElementById('jml-diterima').value) || 0;
+  const tglTerima   = document.getElementById('tgl-terima').value;
+  const penerima    = document.getElementById('penerima').value.trim();
+
+  if (!jmlDiterima || !tglTerima || !penerima) { showToast('Lengkapi semua field wajib.', 'error'); return; }
+
+  document.getElementById('btn-simpan-terima').disabled = true;
+  document.getElementById('btn-simpan-terima').innerHTML = '<div class="spinner"></div> Menyimpan...';
+
+  try {
+    await db.collection('permintaan').doc(selectedDoc.id).update({
+      status:      'Received',
+      statusLabel: 'Selesai — Barang Diterima Gudang',
+      syncedToSheets: false,
+      penerimaan: {
+        jumlahDiterima: jmlDiterima,
+        tglTerima,
+        kondisi:        document.getElementById('kondisi').value,
+        penerima,
+        catatanTerima:  document.getElementById('catatan-terima').value.trim(),
+        oleh:           currentUser.nama,
+        waktu:          firebase.firestore.FieldValue.serverTimestamp(),
+      }
+    });
+    showToast('✓ Penerimaan barang terkonfirmasi!', 'success');
+    closeModal();
+    // Auto sync ke sheets
+    setTimeout(() => syncSingleToSheets(selectedDoc.id), 1000);
+  } catch (e) { console.error(e); showToast('Gagal menyimpan. Coba lagi.', 'error'); }
+
+  document.getElementById('btn-simpan-terima').disabled = false;
+}
+
+// ── Sync ke Google Sheets ──
+async function syncSingleToSheets(docId) {
+  if (APPS_SCRIPT_URL === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') return; // skip jika belum setup
+  const doc = allDocs.find(d => d.id === docId);
+  if (!doc) return;
+  try {
+    await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode:   'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildSheetRow(doc)),
+    });
+    await db.collection('permintaan').doc(docId).update({ syncedToSheets: true });
+  } catch (e) { console.error('Sync error:', e); }
+}
+
+async function syncAllToSheets() {
+  if (APPS_SCRIPT_URL === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
+    showToast('URL Apps Script belum diisi di pembelian.html', 'error'); return;
+  }
+  const btn = document.getElementById('btn-sync-all');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Menyinkronkan...';
+
+  const toSync = allDocs.filter(d => !d.syncedToSheets && ['Purchased','Received'].includes(d.status));
+  let ok = 0;
+  for (const doc of toSync) {
+    try {
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildSheetRow(doc)),
+      });
+      await db.collection('permintaan').doc(doc.id).update({ syncedToSheets: true });
+      ok++;
+    } catch (e) { console.error(e); }
+  }
+  showToast(ok > 0 ? `✓ ${ok} data berhasil disync ke Sheets!` : 'Semua data sudah tersync.', 'success');
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Sync ke Google Sheets';
+}
+
+function buildSheetRow(d) {
+  return {
+    noPerm:         d.noPerm,
+    tanggalInput:   d.tanggalInput?.toDate ? formatTgl(d.tanggalInput.toDate()) : '',
+    lokasi:         d.lokasi,
+    requester:      d.requester,
+    petugasInput:   d.petugasInput,
+    namaBarang:     d.namaBarang,
+    jumlah:         d.jumlah,
+    satuan:         d.satuan,
+    keperluan:      d.keperluan,
+    keterangan:     d.keterangan,
+    prioritas:      d.prioritas,
+    statusAkhir:    d.status,
+    approvedKepGudang: d.approvalKepGudang?.nama || '',
+    approvedManager:   d.approvalManager?.nama   || '',
+    supplier:       d.pembelian?.supplier   || '',
+    noPO:           d.pembelian?.noPO       || '',
+    hargaSatuan:    d.pembelian?.hargaSatuan || 0,
+    totalHarga:     d.pembelian?.totalHarga  || 0,
+    tglBeli:        d.pembelian?.tglBeli     || '',
+    jmlDiterima:    d.penerimaan?.jumlahDiterima || '',
+    tglTerima:      d.penerimaan?.tglTerima      || '',
+    kondisi:        d.penerimaan?.kondisi         || '',
+    penerima:       d.penerimaan?.penerima        || '',
+  };
+}
+
+// ── Helpers ──
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); selectedDoc = null; }
+function closeModalOutside(e) { if (e.target === document.getElementById('modal-overlay')) closeModal(); }
+
+function badgeStatus(s) {
+  const map = {
+    'Approved2': ['badge-approved2', 'Siap Dibeli'],
+    'Purchased': ['badge-purchased', 'Sudah Dibeli'],
+    'Received':  ['badge-received',  'Diterima Gudang'],
+    'Rejected':  ['badge-rejected',  'Ditolak'],
+  };
+  const [cls, lbl] = map[s] || ['badge-approved2', s];
+  return `<span class="badge ${cls}">${lbl}</span>`;
+}
+
+function formatTgl(d) { return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }); }
+function formatRp(n)  { return 'Rp ' + (n || 0).toLocaleString('id-ID'); }
+
+let toastTimer;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 3500);
+}
+
+function logout() { auth.signOut().then(() => window.location.href = 'index.html'); }
+
+</script>
+</body>
+</html>
