@@ -17,12 +17,12 @@
 
 // ID Spreadsheet — ambil dari URL Google Sheets Anda
 // https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
-const SPREADSHEET_ID = 'GANTI_SPREADSHEET_ID_ANDA';
+const SPREADSHEET_ID = '1HNkSaYLwdjj-L8qparWV2TOHVPhI03v7sUHfFfvnuIM';
 
 // Nama sheet di dalam Spreadsheet
 const SHEET_PERMINTAAN = 'Data Permintaan';
-const SHEET_REKAP      = 'Rekap Bulanan';
-const SHEET_DASHBOARD  = 'Dashboard';
+const SHEET_REKAP = 'Rekap Bulanan';
+const SHEET_DASHBOARD = 'Dashboard';
 
 // ── Header kolom ──
 const HEADERS = [
@@ -31,7 +31,8 @@ const HEADERS = [
   'Keterangan', 'Prioritas', 'Status Akhir',
   'Disetujui Kep. Gudang', 'Disetujui Manager',
   'Supplier', 'No. PO / Invoice', 'Harga Satuan (Rp)', 'Total Harga (Rp)',
-  'Tanggal Beli', 'Jml Diterima', 'Tanggal Terima', 'Kondisi Barang', 'Penerima Gudang',
+  'Tanggal Beli', 'Tanggal Kirim', 'Catatan Kirim',
+  'Jml Diterima', 'Tanggal Terima', 'Kondisi Barang', 'Penerima Gudang',
   'Waktu Sync'
 ];
 
@@ -41,7 +42,7 @@ const HEADERS = [
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
-    const ss   = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     upsertRow(ss, data);
     updateRekap(ss);
     return ContentService
@@ -103,29 +104,31 @@ function upsertRow(ss, data) {
 // ── Build array baris dari data ──
 function buildRow(d) {
   return [
-    d.noPerm         || '',
-    d.tanggalInput   || '',
-    d.lokasi         || '',
-    d.requester      || '',
-    d.petugasInput   || '',
-    d.namaBarang     || '',
-    d.jumlah         || 0,
-    d.satuan         || '',
-    d.keperluan      || '',
-    d.keterangan     || '',
-    d.prioritas      || '',
-    d.statusAkhir    || '',
+    d.noPerm || '',
+    d.tanggalInput || '',
+    d.lokasi || '',
+    d.requester || '',
+    d.petugasInput || '',
+    d.namaBarang || '',
+    d.jumlah || 0,
+    d.satuan || '',
+    d.keperluan || '',
+    d.keterangan || '',
+    d.prioritas || '',
+    d.statusAkhir || '',
     d.approvedKepGudang || '',
-    d.approvedManager   || '',
-    d.supplier       || '',
-    d.noPO           || '',
-    d.hargaSatuan    || 0,
-    d.totalHarga     || 0,
-    d.tglBeli        || '',
-    d.jmlDiterima    || '',
-    d.tglTerima      || '',
-    d.kondisi        || '',
-    d.penerima       || '',
+    d.approvedManager || '',
+    d.supplier || '',
+    d.noPO || '',
+    d.hargaSatuan || 0,
+    d.totalHarga || 0,
+    d.tglBeli || '',
+    d.tglKirim || '',
+    d.catatanKirim || '',
+    d.jmlDiterima || '',
+    d.tglTerima || '',
+    d.kondisi || '',
+    d.penerima || '',
     new Date().toLocaleString('id-ID'),
   ];
 }
@@ -151,6 +154,7 @@ function setupHeaderRow(sheet) {
   sheet.setColumnWidth(1, 160);  // No. Permintaan
   sheet.setColumnWidth(6, 200);  // Nama Barang
   sheet.setColumnWidth(10, 200); // Keterangan
+  sheet.setColumnWidth(21, 200); // Catatan Kirim
 }
 
 // ── Format baris data ──
@@ -173,7 +177,7 @@ function formatDataRow(sheet, rowNum) {
   const status = sheet.getRange(rowNum, 12).getValue();
   const stColor = {
     'Approved2': '#dbeafe', 'Purchased': '#f3e8ff',
-    'Received':  '#dcfce7', 'Rejected':  '#fee2e2',
+    'Received': '#dcfce7', 'Rejected': '#fee2e2',
   };
   if (stColor[status]) sheet.getRange(rowNum, 12).setBackground(stColor[status]);
 }
@@ -199,17 +203,17 @@ function updateRekap(ss) {
   // Group by bulan (dari kolom tanggalInput)
   const byMonth = {};
   data.forEach(row => {
-    const tgl     = row[1];
+    const tgl = row[1];
     if (!tgl) return;
     const dateStr = tgl.toString();
-    const parts   = dateStr.split('/');
-    const month   = parts.length >= 3
-      ? `${parts[1]}/${parts[2]?.substring(0,4) || new Date().getFullYear()}`
+    const parts = dateStr.split('/');
+    const month = parts.length >= 3
+      ? `${parts[1]}/${parts[2]?.substring(0, 4) || new Date().getFullYear()}`
       : dateStr.substring(0, 7);
 
     if (!byMonth[month]) byMonth[month] = { total: 0, approved: 0, rejected: 0, totalBeli: 0, countBeli: 0 };
     byMonth[month].total++;
-    if (['Approved2','Purchased','Received'].includes(row[11])) byMonth[month].approved++;
+    if (['Approved2', 'Purchased', 'Received'].includes(row[11])) byMonth[month].approved++;
     if (row[11] === 'Rejected') byMonth[month].rejected++;
     if (row[17] > 0) { byMonth[month].totalBeli += row[17]; byMonth[month].countBeli++; }
   });

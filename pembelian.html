@@ -39,7 +39,7 @@
 <main>
   <div class="page-header">
     <h1>Dashboard Pembelian</h1>
-    <p>Proses pembelian barang yang telah disetujui dan catat penerimaan ke gudang</p>
+    <p>Proses pembelian barang yang telah disetujui dan catat pengiriman ke gudang</p>
   </div>
 
   <!-- STATS -->
@@ -155,41 +155,27 @@
         </div>
       </div>
 
-      <!-- Form Penerimaan Gudang -->
-      <div class="penerimaan-form" id="form-terima" style="display:none">
-        <h4>✅ Konfirmasi Penerimaan Gudang</h4>
+      <!-- Form Konfirmasi Barang Dikirim ke Gudang -->
+      <div class="section-box" id="form-kirim" style="display:none">
+        <h4>🚚 Konfirmasi Barang Dikirim ke Gudang</h4>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
+          Konfirmasi bahwa barang telah dikirim ke gudang. Penerimaan dan pengecekan barang akan dilakukan oleh petugas gudang.
+        </p>
         <div class="form-grid-2">
           <div class="field">
-            <label for="jml-diterima">Jumlah Diterima <span class="req">*</span></label>
-            <input type="number" id="jml-diterima" placeholder="0" min="1"/>
-          </div>
-          <div class="field">
-            <label for="tgl-terima">Tanggal Diterima <span class="req">*</span></label>
-            <input type="date" id="tgl-terima"/>
-          </div>
-          <div class="field">
-            <label for="kondisi">Kondisi Barang</label>
-            <select id="kondisi">
-              <option>Baik / Sesuai</option>
-              <option>Baik tapi Kurang Jumlah</option>
-              <option>Ada Kerusakan</option>
-              <option>Tidak Sesuai Spesifikasi</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="penerima">Diterima Oleh <span class="req">*</span></label>
-            <input type="text" id="penerima" placeholder="Nama penerima di gudang"/>
+            <label for="tgl-kirim">Tanggal Dikirim <span class="req">*</span></label>
+            <input type="date" id="tgl-kirim"/>
           </div>
           <div class="field full">
-            <label for="catatan-terima">Catatan Penerimaan</label>
-            <textarea id="catatan-terima" placeholder="Catatan kondisi barang, kekurangan, dsb..."></textarea>
+            <label for="catatan-kirim">Catatan Pengiriman</label>
+            <textarea id="catatan-kirim" placeholder="Catatan pengiriman, nomor resi, kurir, dsb..."></textarea>
           </div>
         </div>
         <div class="modal-actions">
           <button class="btn-secondary" onclick="closeModal()">Batal</button>
-          <button class="btn-success" id="btn-simpan-terima" onclick="simpanPenerimaan()">
+          <button class="btn-success" id="btn-simpan-kirim" onclick="simpanPengiriman()">
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-            Konfirmasi Diterima Gudang
+            Konfirmasi Dikirim ke Gudang
           </button>
         </div>
       </div>
@@ -296,7 +282,7 @@ function renderTable() {
     const tgl = d.approvalManager?.waktu?.toDate ? formatTgl(d.approvalManager.waktu.toDate()) : '—';
     let aksi = '';
     if (d.status === 'Approved2')  aksi = `<button class="btn-proses" onclick="openModal('${d.id}','beli')">Proses Beli</button>`;
-    else if (d.status === 'Purchased') aksi = `<button class="btn-terima" onclick="openModal('${d.id}','terima')">Konfirmasi Terima</button>`;
+    else if (d.status === 'Purchased') aksi = `<button class="btn-terima" onclick="openModal('${d.id}','kirim')">Konfirmasi Kirim</button>`;
     else aksi = `<button class="btn-detail" onclick="openModal('${d.id}','detail')">Detail</button>`;
 
     const syncBadge = d.syncedToSheets
@@ -324,12 +310,12 @@ function openModal(id, mode) {
   if (!selectedDoc) return;
   const d = selectedDoc;
 
-  document.getElementById('modal-title').textContent = `${d.noPerm} — ${mode === 'beli' ? 'Proses Pembelian' : mode === 'terima' ? 'Konfirmasi Penerimaan' : 'Detail'}`;
+  document.getElementById('modal-title').textContent = `${d.noPerm} — ${mode === 'beli' ? 'Proses Pembelian' : mode === 'kirim' ? 'Konfirmasi Pengiriman' : 'Detail'}`;
   document.getElementById('form-beli').style.display   = mode === 'beli'   ? '' : 'none';
-  document.getElementById('form-terima').style.display = mode === 'terima' ? '' : 'none';
+  document.getElementById('form-kirim').style.display = mode === 'kirim' ? '' : 'none';
 
   if (mode === 'beli')   { document.getElementById('tgl-beli').valueAsDate = new Date(); hitungTotal(); }
-  if (mode === 'terima') { document.getElementById('tgl-terima').valueAsDate = new Date(); document.getElementById('jml-diterima').value = d.jumlah; }
+  if (mode === 'kirim')  { document.getElementById('tgl-kirim').valueAsDate = new Date(); }
 
   document.getElementById('detail-grid').innerHTML = `
     <div class="detail-item"><span class="lbl">No. Permintaan</span><span class="val">${escapeHtml(d.noPerm)}</span></div>
@@ -365,7 +351,10 @@ function renderHistory(d) {
     logs.push({ dot: ok ? 'green' : 'red', text: `<strong>Manager (${escapeHtml(d.approvalManager.nama)})</strong> ${ok ? 'menyetujui' : 'menolak'}${d.approvalManager.catatan ? ' — "' + escapeHtml(d.approvalManager.catatan) + '"' : ''}` });
   }
   if (d.pembelian) {
-    logs.push({ dot: 'purple', text: `<strong>Pembelian (${escapeHtml(d.pembelian.oleh)})</strong> memproses pembelian dari <strong>${escapeHtml(d.pembelian.supplier)}</strong> — ${formatRp(d.pembelian.totalHarga)}` });
+    logs.push({ dot: 'purple', text: `<strong>Pembelian (${escapeHtml(d.pembelian.oleh)})</strong> memproses pembelian` });
+  }
+  if (d.pengiriman) {
+    logs.push({ dot: 'blue', text: `<strong>Pembelian (${escapeHtml(d.pengiriman.oleh)})</strong> mengirim barang ke gudang pada ${formatTgl(new Date(d.pengiriman.tglKirim))}` });
   }
   if (d.penerimaan) {
     logs.push({ dot: 'green', text: `<strong>Gudang (${escapeHtml(d.penerimaan.penerima)})</strong> menerima ${d.penerimaan.jumlahDiterima} ${d.satuan} — Kondisi: ${escapeHtml(d.penerimaan.kondisi)}` });
@@ -391,14 +380,14 @@ async function simpanPembelian() {
 
   if (!supplier || !hargaSatuan || !tglBeli) { showToast('Lengkapi semua field wajib.', 'error'); return; }
 
-  const docId = selectedDoc.id; // simpan sebelum close modal
+  const docId = selectedDoc.id;
 
   setBtnLoading('btn-simpan-beli', true, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Sudah Dibeli');
 
   try {
     await db.collection('permintaan').doc(selectedDoc.id).update({
       status:      'Purchased',
-      statusLabel: 'Sudah Dibeli — Menunggu Penerimaan Gudang',
+      statusLabel: 'Sudah Dibeli — Menunggu Dikirim ke Gudang',
       syncedToSheets: false,
       pembelian: {
         supplier,
@@ -414,43 +403,38 @@ async function simpanPembelian() {
     });
     showToast('✓ Data pembelian tersimpan!', 'success');
     closeModal();
-    setTimeout(() => syncSingleToSheets(docId), 1000); // pakai docId yang disimpan
+    setTimeout(() => syncSingleToSheets(docId), 1000);
   } catch (e) { console.error(e); showToast('Gagal menyimpan. Coba lagi.', 'error'); }
 
   setBtnLoading('btn-simpan-beli', false, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Sudah Dibeli');
 }
 
-// ── Simpan Penerimaan ──
-async function simpanPenerimaan() {
-  const jmlDiterima = parseInt(document.getElementById('jml-diterima').value) || 0;
-  const tglTerima   = document.getElementById('tgl-terima').value;
-  const penerima    = document.getElementById('penerima').value.trim();
+// ── Simpan Pengiriman ──
+async function simpanPengiriman() {
+  const tglKirim = document.getElementById('tgl-kirim').value;
 
-  if (!jmlDiterima || !tglTerima || !penerima) { showToast('Lengkapi semua field wajib.', 'error'); return; }
+  if (!tglKirim) { showToast('Tanggal dikirim wajib diisi.', 'error'); return; }
 
-  setBtnLoading('btn-simpan-terima', true, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Diterima Gudang');
+  setBtnLoading('btn-simpan-kirim', true, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Dikirim ke Gudang');
 
   try {
     await db.collection('permintaan').doc(selectedDoc.id).update({
-      status:      'Received',
-      statusLabel: 'Selesai — Barang Diterima Gudang',
+      status:      'Purchased',
+      statusLabel: 'Dikirim ke Gudang — Menunggu Penerimaan',
       syncedToSheets: false,
-      penerimaan: {
-        jumlahDiterima: jmlDiterima,
-        tglTerima,
-        kondisi:        document.getElementById('kondisi').value,
-        penerima,
-        catatanTerima:  escapeHtml(document.getElementById('catatan-terima').value.trim()),
-        oleh:           currentUser.nama,
-        waktu:          firebase.firestore.FieldValue.serverTimestamp(),
+      pengiriman: {
+        tglKirim,
+        catatanKirim: escapeHtml(document.getElementById('catatan-kirim').value.trim()),
+        oleh: currentUser.nama,
+        waktu: firebase.firestore.FieldValue.serverTimestamp(),
       }
     });
-    showToast('✓ Penerimaan barang terkonfirmasi!', 'success');
+    showToast('✓ Barang dikonfirmasi dikirim ke gudang!', 'success');
     closeModal();
     setTimeout(() => syncSingleToSheets(selectedDoc.id), 1000);
   } catch (e) { console.error(e); showToast('Gagal menyimpan. Coba lagi.', 'error'); }
 
-  setBtnLoading('btn-simpan-terima', false, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Diterima Gudang');
+  setBtnLoading('btn-simpan-kirim', false, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Dikirim ke Gudang');
 }
 
 // ── Sync ke Google Sheets (improved) ──
@@ -472,11 +456,9 @@ async function syncSingleToSheets(docId) {
     }
   } catch (e) {
     console.error('Sync error (CORS mungkin):', e);
-    // Fallback: try no-cors but don't know if succeeded
     try {
       await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
+        method: 'POST', mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(buildSheetRow(doc)),
       });
@@ -534,6 +516,8 @@ function buildSheetRow(d) {
     hargaSatuan:    d.pembelian?.hargaSatuan || 0,
     totalHarga:     d.pembelian?.totalHarga  || 0,
     tglBeli:        d.pembelian?.tglBeli     || '',
+    tglKirim:       d.pengiriman?.tglKirim   || '',
+    catatanKirim:   d.pengiriman?.catatanKirim || '',
     jmlDiterima:    d.penerimaan?.jumlahDiterima || '',
     tglTerima:      d.penerimaan?.tglTerima      || '',
     kondisi:        d.penerimaan?.kondisi         || '',

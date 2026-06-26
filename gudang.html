@@ -21,6 +21,18 @@
       cursor: pointer; transition: all .2s;
     }
     .btn-terima:hover { background: var(--success-h); }
+    .badge-dikirim {
+      display: inline-flex; align-items: center;
+      padding: .25rem .7rem; border-radius: 20px;
+      font-size: .75rem; font-weight: 700; white-space: nowrap;
+      background: #dbeafe; color: #1e40af;
+    }
+    .badge-menunggu {
+      display: inline-flex; align-items: center;
+      padding: .25rem .7rem; border-radius: 20px;
+      font-size: .75rem; font-weight: 700; white-space: nowrap;
+      background: #fef3c7; color: #92400e;
+    }
   </style>
 </head>
 <body>
@@ -367,21 +379,21 @@ function showPanel(name, btn) {
   const panelForm = document.getElementById('panel-form');
   const panelRiwayat = document.getElementById('panel-riwayat');
   const panelBarangDibeli = document.getElementById('panel-barang-dibeli');
-  
+
   panelForm.style.display = 'none';
   panelRiwayat.style.display = 'none';
   panelBarangDibeli.style.display = 'none';
-  
+
   if (name === 'form') panelForm.style.display = 'block';
   else if (name === 'riwayat') panelRiwayat.style.display = 'block';
   else if (name === 'barang-dibeli') panelBarangDibeli.style.display = 'block';
-  
+
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
-  
+
   if (name === 'riwayat') loadRiwayat();
   else if (riwayatUnsub) { riwayatUnsub(); riwayatUnsub = null; }
-  
+
   if (name === 'barang-dibeli') loadBarangDibeli();
   else if (barangDibeliUnsub) { barangDibeliUnsub(); barangDibeliUnsub = null; }
 }
@@ -531,25 +543,38 @@ function loadBarangDibeli() {
     .orderBy('tanggalInput', 'desc')
     .limit(50)
     .onSnapshot(snap => {
+      // Filter: tampilkan yang sudah dibeli (Purchased) dan sudah dikirim (ada pengiriman) ATAU sudah diterima (Received)
       const docs = snap.docs.filter(doc => {
-        const status = doc.data().status;
-        return status === 'Purchased' || status === 'Received';
+        const d = doc.data();
+        return (d.status === 'Purchased' && d.pengiriman) || d.status === 'Received';
       });
       const tbody = document.getElementById('tabel-barang-dibeli');
       document.getElementById('barang-dibeli-info').textContent = `Menampilkan ${docs.length} data`;
       if (docs.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-          <p>Belum ada barang yang dibeli</p></div></td></tr>`;
+          <p>Belum ada barang yang dikirim ke gudang</p></div></td></tr>`;
         return;
       }
       tbody.innerHTML = docs.map(doc => {
         const d = doc.data();
         const tgl = d.approvalManager?.waktu?.toDate ? formatTgl(d.approvalManager.waktu.toDate()) : '—';
         const totalHarga = d.pembelian?.totalHarga ? formatRp(d.pembelian.totalHarga) : '—';
-        const aksi = d.status === 'Purchased'
-          ? `<button class="btn-terima" onclick="openTerimaModal('${d.id}')">Terima</button>`
-          : `<span class="badge badge-received">Selesai</span>`;
+
+        // Status badge
+        let statusBadge;
+        let aksi;
+        if (d.status === 'Received') {
+          statusBadge = `<span class="badge badge-received">Selesai</span>`;
+          aksi = '—';
+        } else if (d.status === 'Purchased' && d.pengiriman) {
+          statusBadge = `<span class="badge-dikirim">Dikirim</span>`;
+          aksi = `<button class="btn-terima" onclick="openTerimaModal('${d.id}')">Terima</button>`;
+        } else {
+          statusBadge = `<span class="badge-menunggu">Menunggu</span>`;
+          aksi = '—';
+        }
+
         return `<tr>
           <td><b>${escapeHtml(d.noPerm)}</b></td>
           <td>${tgl}</td>
@@ -557,7 +582,7 @@ function loadBarangDibeli() {
           <td>${d.jumlah} ${d.satuan}</td>
           <td style="font-size:.82rem">${escapeHtml(d.pembelian?.supplier || '—')}</td>
           <td style="font-size:.82rem;white-space:nowrap">${totalHarga}</td>
-          <td>${badgeStatus(d.status)}</td>
+          <td>${statusBadge}</td>
           <td>${aksi}</td>
         </tr>`;
       }).join('');
@@ -587,6 +612,8 @@ async function openTerimaModal(id) {
       <div class="detail-item"><span class="lbl">Supplier</span><span class="val">${escapeHtml(d.pembelian?.supplier || '—')}</span></div>
       <div class="detail-item"><span class="lbl">No. PO</span><span class="val">${escapeHtml(d.pembelian?.noPO || '—')}</span></div>
       <div class="detail-item"><span class="lbl">Total Harga</span><span class="val" style="font-weight:700;color:var(--purple)">${formatRp(d.pembelian?.totalHarga)}</span></div>
+      <div class="detail-item"><span class="lbl">Tanggal Dikirim</span><span class="val">${escapeHtml(d.pengiriman?.tglKirim || '—')}</span></div>
+      <div class="detail-item full"><span class="lbl">Catatan Pengiriman</span><span class="val">${escapeHtml(d.pengiriman?.catatanKirim) || '—'}</span></div>
     `;
 
     document.getElementById('jml-diterima').value = d.jumlah;

@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // ============================================================
+    //  USERS collection
+    // ============================================================
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    // ============================================================
+    //  PERMINTAAN collection
+    // ============================================================
+    match /permintaan/{docId} {
+      allow read: if isAuthenticated();
+
+      // CREATE: petugas gudang hanya boleh buat untuk diri sendiri
+      allow create: if isAuthenticated()
+        && request.auth.uid == request.resource.data.petugasUID
+        && request.resource.data.status == 'Pending';
+
+      // UPDATE: dibatasi berdasarkan role & field yang boleh diubah
+      allow update: if isAuthenticated() && (
+        // Petugas gudang: batalin PR milik sendiri
+        (request.auth.uid == resource.data.petugasUID
+          && request.resource.data.status == 'Rejected'
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','statusLabel','catatanApproval']))
+        ||
+        // Kepala gudang: approve/reject PR yang Pending
+        (resource.data.status == 'Pending'
+          && (request.resource.data.status == 'Approved1' || request.resource.data.status == 'Rejected')
+          && request.resource.data.diff(resource.data).changedKeys().hasAny(['status','statusLabel','catatanApproval','approvalKepGudang','syncedToSheets']))
+        ||
+        // Manager: approve/reject PR yang Approved1
+        (resource.data.status == 'Approved1'
+          && (request.resource.data.status == 'Approved2' || request.resource.data.status == 'Rejected')
+          && request.resource.data.diff(resource.data).changedKeys().hasAny(['status','statusLabel','catatanApproval','approvalManager','syncedToSheets']))
+        ||
+        // Pembelian: update ke Purchased (dengan pembelian) atau tambah pengiriman
+        (((resource.data.status == 'Approved2' && request.resource.data.status == 'Purchased')
+           || (resource.data.status == 'Purchased' && request.resource.data.status == 'Purchased'
+               && request.resource.data.diff(resource.data).changedKeys().hasAny(['pengiriman','statusLabel','syncedToSheets'])))
+          && request.resource.data.diff(resource.data).changedKeys().hasAny(['status','statusLabel','pembelian','pengiriman','syncedToSheets']))
+        ||
+        // Pembelian: sync ke Sheets (hanya ubah syncedToSheets)
+        ((resource.data.status == 'Purchased' || resource.data.status == 'Received')
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['syncedToSheets']))
+        ||
+        // Petugas gudang: terima barang yang sudah dibeli dan dikirim (Purchased → Received)
+        (request.auth.uid == resource.data.petugasUID
+          && resource.data.status == 'Purchased'
+          && resource.data.pengiriman != null
+          && request.resource.data.status == 'Received'
+          && request.resource.data.diff(resource.data).changedKeys().hasAny(['status','statusLabel','penerimaan','syncedToSheets']))
+      );
+
+      // DELETE: tidak diizinkan dari client
+      allow delete: if false;
+    }
+
+    // ============================================================
+    //  METADATA / COUNTER
+    // ============================================================
+    match /metadata/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && docId == 'counter'
+        && request.resource.data.keys().hasOnly(['noPerm']);
+    }
+
+    // Default: deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
