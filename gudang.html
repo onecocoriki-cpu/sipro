@@ -6,7 +6,7 @@
   <title>Form Permintaan Barang — SiPro</title>
   <link rel="stylesheet" href="shared-style.css"/>
   <style>
-    #panel-riwayat { display: none; }
+    #panel-riwayat, #panel-barang-dibeli { display: none; }
     .user-chip { background: var(--primary-bg); color: var(--primary); }
     .card { padding: 1.75rem; margin-bottom: 1.5rem; }
     .btn-batal {
@@ -15,6 +15,12 @@
       font-weight: 600; cursor: pointer; transition: all .2s;
     }
     .btn-batal:hover { background: var(--danger); color: white; }
+    .btn-terima {
+      padding: .38rem .85rem; background: var(--success); color: white;
+      border: none; border-radius: 6px; font-size: .8rem; font-weight: 600;
+      cursor: pointer; transition: all .2s;
+    }
+    .btn-terima:hover { background: var(--success-h); }
   </style>
 </head>
 <body>
@@ -57,6 +63,7 @@
   <div class="tabs">
     <button class="tab active" onclick="showPanel('form', this)">Form Baru</button>
     <button class="tab" onclick="showPanel('riwayat', this)">Riwayat Saya</button>
+    <button class="tab" onclick="showPanel('barang-dibeli', this)">Barang Dibeli</button>
   </div>
 
   <!-- ══ PANEL FORM ══ -->
@@ -223,7 +230,99 @@
       <div class="pagination-bar" id="riwayat-info"></div>
     </div>
   </div>
+
+  <!-- ══ PANEL BARANG DIBELI ══ -->
+  <div id="panel-barang-dibeli">
+    <div class="card">
+      <div class="card-title">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M9 9h1"/>
+        </svg>
+        Barang Dibeli — Perlu Diterima
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>No. Perm.</th>
+              <th>Tgl Disetujui</th>
+              <th>Nama Barang</th>
+              <th>Jml</th>
+              <th>Supplier</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tabel-barang-dibeli">
+            <tr>
+              <td colspan="8">
+                <div class="empty-state">
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                  </svg>
+                  <p>Memuat data...</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination-bar" id="barang-dibeli-info"></div>
+    </div>
+  </div>
 </main>
+
+<!-- MODAL PENERIMAAN BARANG -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal" id="modal">
+    <div class="modal-head">
+      <h3 id="modal-title">Konfirmasi Penerimaan Barang</h3>
+      <button class="btn-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-grid" id="detail-grid"></div>
+
+      <div class="penerimaan-form" id="form-terima">
+        <h4>✅ Pengecekan & Penerimaan Barang</h4>
+        <div class="form-grid-2">
+          <div class="field">
+            <label for="jml-diterima">Jumlah Diterima <span class="req">*</span></label>
+            <input type="number" id="jml-diterima" placeholder="0" min="1"/>
+          </div>
+          <div class="field">
+            <label for="tgl-terima">Tanggal Diterima <span class="req">*</span></label>
+            <input type="date" id="tgl-terima"/>
+          </div>
+          <div class="field">
+            <label for="kondisi">Kondisi Barang <span class="req">*</span></label>
+            <select id="kondisi">
+              <option>Baik / Sesuai</option>
+              <option>Baik tapi Kurang Jumlah</option>
+              <option>Ada Kerusakan</option>
+              <option>Tidak Sesuai Spesifikasi</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="penerima">Diterima Oleh <span class="req">*</span></label>
+            <input type="text" id="penerima" placeholder="Nama penerima"/>
+          </div>
+          <div class="field full">
+            <label for="catatan-terima">Catatan Penerimaan</label>
+            <textarea id="catatan-terima" placeholder="Catatan kondisi barang, kekurangan, dsb..."></textarea>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="closeModal()">Batal</button>
+          <button class="btn-success" id="btn-simpan-terima" onclick="simpanPenerimaan()">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            Konfirmasi Diterima
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="toast"></div>
 
@@ -236,6 +335,8 @@
 
 let currentUser = null;
 let riwayatUnsub = null;
+let barangDibeliUnsub = null;
+let selectedDoc = null;
 
 // ── Init ──
 auth.onAuthStateChanged(async user => {
@@ -251,8 +352,8 @@ function initPage() {
   document.getElementById('user-chip').textContent = currentUser.nama;
   document.getElementById('disp-nama').textContent = currentUser.nama;
   document.getElementById('disp-tanggal').textContent = formatTanggal(new Date());
+  document.getElementById('penerima').value = currentUser.nama;
 
-  // Isi lokasi otomatis jika ada
   if (currentUser.lokasi && currentUser.lokasi !== 'Semua') {
     const sel = document.getElementById('lokasi');
     for (let o of sel.options) {
@@ -263,26 +364,26 @@ function initPage() {
 
 // ── Panel Switch ──
 function showPanel(name, btn) {
-  console.log('DEBUG: showPanel dipanggil dengan name:', name);
   const panelForm = document.getElementById('panel-form');
   const panelRiwayat = document.getElementById('panel-riwayat');
-  if (name === 'form') {
-    panelForm.style.display = 'block';
-    panelRiwayat.style.display = 'none';
-  } else {
-    panelForm.style.display = 'none';
-    panelRiwayat.style.display = 'block';
-  }
+  const panelBarangDibeli = document.getElementById('panel-barang-dibeli');
+  
+  panelForm.style.display = 'none';
+  panelRiwayat.style.display = 'none';
+  panelBarangDibeli.style.display = 'none';
+  
+  if (name === 'form') panelForm.style.display = 'block';
+  else if (name === 'riwayat') panelRiwayat.style.display = 'block';
+  else if (name === 'barang-dibeli') panelBarangDibeli.style.display = 'block';
+  
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
-  if (name === 'riwayat') {
-    console.log('DEBUG: Memanggil loadRiwayat');
-    loadRiwayat();
-  } else if (riwayatUnsub) {
-    console.log('DEBUG: Unsubscribing riwayat');
-    riwayatUnsub();
-    riwayatUnsub = null;
-  }
+  
+  if (name === 'riwayat') loadRiwayat();
+  else if (riwayatUnsub) { riwayatUnsub(); riwayatUnsub = null; }
+  
+  if (name === 'barang-dibeli') loadBarangDibeli();
+  else if (barangDibeliUnsub) { barangDibeliUnsub(); barangDibeliUnsub = null; }
 }
 
 // ── Submit ──
@@ -381,32 +482,22 @@ async function batalPermintaan(noPerm) {
 
 // ── Load Riwayat ──
 function loadRiwayat() {
-  if (riwayatUnsub) { console.log('DEBUG: riwayatUnsub sudah ada, skip'); return; }
-  if (!currentUser) { console.error('DEBUG: currentUser null!'); showToast('User belum terload. Refresh halaman.', 'error'); return; }
-  console.log('DEBUG: Loading riwayat untuk UID:', currentUser.uid);
-  
+  if (riwayatUnsub) return;
   riwayatUnsub = db.collection('permintaan')
     .where('petugasUID', '==', currentUser.uid)
     .orderBy('tanggalInput', 'desc')
     .limit(50)
     .onSnapshot(snap => {
-      console.log('DEBUG: Snap size:', snap.size);
-      console.log('DEBUG: Snap empty:', snap.empty);
-      console.log('DEBUG: Docs:', snap.docs.map(d => ({ id: d.id, noPerm: d.data().noPerm, petugasUID: d.data().petugasUID })));
       const tbody = document.getElementById('tabel-riwayat');
-      console.log('DEBUG: tbody element:', tbody);
       document.getElementById('riwayat-info').textContent = `Menampilkan ${snap.size} permintaan terakhir`;
       if (snap.size === 0) {
-        console.log('DEBUG: Masuk ke empty state');
         tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
           <p>Belum ada permintaan</p></div></td></tr>`;
         return;
       }
-      console.log('DEBUG: Render docs...');
-      const html = snap.docs.map(doc => {
+      tbody.innerHTML = snap.docs.map(doc => {
         const d = doc.data();
-        console.log('DEBUG: Render doc:', d.noPerm, d.namaBarang);
         const tgl = d.tanggalInput?.toDate ? formatTgl(d.tanggalInput.toDate()) : '—';
         const batalBtn = d.status === 'Pending'
           ? `<button class="btn-batal" onclick="batalPermintaan('${escapeHtml(d.noPerm)}')">Batal</button>`
@@ -422,10 +513,6 @@ function loadRiwayat() {
           <td>${batalBtn}</td>
         </tr>`;
       }).join('');
-      console.log('DEBUG: HTML length:', html.length);
-      console.log('DEBUG: HTML:', html.substring(0, 200));
-      tbody.innerHTML = html;
-      console.log('DEBUG: Render done');
     }, err => {
       console.error('Riwayat error:', err);
       if (err.code === 'failed-precondition') {
@@ -434,6 +521,127 @@ function loadRiwayat() {
         showToast('Gagal memuat riwayat.', 'error');
       }
     });
+}
+
+// ── Load Barang Dibeli ──
+function loadBarangDibeli() {
+  if (barangDibeliUnsub) return;
+  barangDibeliUnsub = db.collection('permintaan')
+    .where('petugasUID', '==', currentUser.uid)
+    .where('status', 'in', ['Purchased', 'Received'])
+    .orderBy('tanggalInput', 'desc')
+    .limit(50)
+    .onSnapshot(snap => {
+      const tbody = document.getElementById('tabel-barang-dibeli');
+      document.getElementById('barang-dibeli-info').textContent = `Menampilkan ${snap.size} data`;
+      if (snap.size === 0) {
+        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          <p>Belum ada barang yang dibeli</p></div></td></tr>`;
+        return;
+      }
+      tbody.innerHTML = snap.docs.map(doc => {
+        const d = doc.data();
+        const tgl = d.approvalManager?.waktu?.toDate ? formatTgl(d.approvalManager.waktu.toDate()) : '—';
+        const totalHarga = d.pembelian?.totalHarga ? formatRp(d.pembelian.totalHarga) : '—';
+        const aksi = d.status === 'Purchased'
+          ? `<button class="btn-terima" onclick="openTerimaModal('${d.id}')">Terima</button>`
+          : `<span class="badge badge-received">Selesai</span>`;
+        return `<tr>
+          <td><b>${escapeHtml(d.noPerm)}</b></td>
+          <td>${tgl}</td>
+          <td><b>${escapeHtml(d.namaBarang)}</b><br><small style="color:var(--muted)">${d.jumlah} ${d.satuan}</small></td>
+          <td>${d.jumlah} ${d.satuan}</td>
+          <td style="font-size:.82rem">${escapeHtml(d.pembelian?.supplier || '—')}</td>
+          <td style="font-size:.82rem;white-space:nowrap">${totalHarga}</td>
+          <td>${badgeStatus(d.status)}</td>
+          <td>${aksi}</td>
+        </tr>`;
+      }).join('');
+    }, err => {
+      console.error('Barang dibeli error:', err);
+      if (err.code === 'failed-precondition') {
+        showToast('Index Firestore belum dibuat. Hubungi admin.', 'error');
+      } else {
+        showToast('Gagal memuat data. Coba lagi.', 'error');
+      }
+    });
+}
+
+// ── Modal Penerimaan ──
+async function openTerimaModal(id) {
+  try {
+    const doc = await db.collection('permintaan').doc(id).get();
+    if (!doc.exists) { showToast('Data tidak ditemukan.', 'error'); return; }
+    selectedDoc = { id: doc.id, ...doc.data() };
+    const d = selectedDoc;
+
+    document.getElementById('modal-title').textContent = `Terima Barang — ${d.noPerm}`;
+    document.getElementById('detail-grid').innerHTML = `
+      <div class="detail-item"><span class="lbl">No. Permintaan</span><span class="val">${escapeHtml(d.noPerm)}</span></div>
+      <div class="detail-item"><span class="lbl">Nama Barang</span><span class="val" style="font-size:1rem;font-weight:700">${escapeHtml(d.namaBarang)}</span></div>
+      <div class="detail-item"><span class="lbl">Jumlah Pesanan</span><span class="val">${d.jumlah} ${d.satuan}</span></div>
+      <div class="detail-item"><span class="lbl">Supplier</span><span class="val">${escapeHtml(d.pembelian?.supplier || '—')}</span></div>
+      <div class="detail-item"><span class="lbl">No. PO</span><span class="val">${escapeHtml(d.pembelian?.noPO || '—')}</span></div>
+      <div class="detail-item"><span class="lbl">Total Harga</span><span class="val" style="font-weight:700;color:var(--purple)">${formatRp(d.pembelian?.totalHarga)}</span></div>
+    `;
+
+    document.getElementById('jml-diterima').value = d.jumlah;
+    document.getElementById('tgl-terima').valueAsDate = new Date();
+    document.getElementById('penerima').value = currentUser.nama;
+    document.getElementById('catatan-terima').value = '';
+    document.getElementById('kondisi').value = 'Baik / Sesuai';
+
+    document.getElementById('modal-overlay').classList.add('open');
+  } catch (e) {
+    console.error(e);
+    showToast('Gagal membuka detail. Coba lagi.', 'error');
+  }
+}
+
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); selectedDoc = null; }
+function closeModalOutside(e) { if (e.target === document.getElementById('modal-overlay')) closeModal(); }
+
+async function simpanPenerimaan() {
+  if (!selectedDoc) return;
+  const jmlDiterima = parseInt(document.getElementById('jml-diterima').value) || 0;
+  const tglTerima = document.getElementById('tgl-terima').value;
+  const penerima = document.getElementById('penerima').value.trim();
+  const kondisi = document.getElementById('kondisi').value;
+  const catatanTerima = document.getElementById('catatan-terima').value.trim();
+
+  if (!jmlDiterima || !tglTerima || !penerima) {
+    showToast('Lengkapi semua field wajib.', 'error'); return;
+  }
+
+  const btn = document.getElementById('btn-simpan-terima');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Menyimpan...';
+
+  try {
+    await db.collection('permintaan').doc(selectedDoc.id).update({
+      status: 'Received',
+      statusLabel: 'Selesai — Barang Diterima Gudang',
+      syncedToSheets: false,
+      penerimaan: {
+        jumlahDiterima: jmlDiterima,
+        tglTerima,
+        kondisi,
+        penerima,
+        catatanTerima,
+        oleh: currentUser.nama,
+        waktu: firebase.firestore.FieldValue.serverTimestamp(),
+      }
+    });
+    showToast('✓ Barang berhasil diterima!', 'success');
+    closeModal();
+  } catch (e) {
+    console.error(e);
+    showToast('Gagal menyimpan. ' + (e.message || 'Coba lagi.'), 'error');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Diterima';
 }
 
 // ── Loading helpers ──
