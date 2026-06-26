@@ -266,10 +266,13 @@ function showPanel(name, btn) {
   console.log('DEBUG: showPanel dipanggil dengan name:', name);
   const panelForm = document.getElementById('panel-form');
   const panelRiwayat = document.getElementById('panel-riwayat');
-  panelForm.style.display = name === 'form' ? '' : 'none';
-  panelRiwayat.style.display = name === 'riwayat' ? '' : 'none';
-  console.log('DEBUG: panel-riwayat display set to:', panelRiwayat.style.display);
-  console.log('DEBUG: panel-riwayat computed display:', window.getComputedStyle(panelRiwayat).display);
+  if (name === 'form') {
+    panelForm.style.display = 'block';
+    panelRiwayat.style.display = 'none';
+  } else {
+    panelForm.style.display = 'none';
+    panelRiwayat.style.display = 'block';
+  }
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
   if (name === 'riwayat') {
