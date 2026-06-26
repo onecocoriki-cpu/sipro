@@ -264,8 +264,12 @@ function initPage() {
 // ── Panel Switch ──
 function showPanel(name, btn) {
   console.log('DEBUG: showPanel dipanggil dengan name:', name);
-  document.getElementById('panel-form').style.display = name === 'form' ? '' : 'none';
-  document.getElementById('panel-riwayat').style.display = name === 'riwayat' ? '' : 'none';
+  const panelForm = document.getElementById('panel-form');
+  const panelRiwayat = document.getElementById('panel-riwayat');
+  panelForm.style.display = name === 'form' ? '' : 'none';
+  panelRiwayat.style.display = name === 'riwayat' ? '' : 'none';
+  console.log('DEBUG: panel-riwayat display set to:', panelRiwayat.style.display);
+  console.log('DEBUG: panel-riwayat computed display:', window.getComputedStyle(panelRiwayat).display);
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
   if (name === 'riwayat') {
