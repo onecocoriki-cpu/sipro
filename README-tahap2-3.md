@@ -128,7 +128,7 @@ Permintaan yang sudah disetujui manager, siap dibelikan.
 
 ### Tab "Sudah Dibeli" (status: Purchased)
 Barang sudah dibeli, menunggu konfirmasi penerimaan gudang.
-- Klik **Konfirmasi Terima** → isi form:
+- Klik **Konfirmasi Dikirim** → isi form:
   - Jumlah Diterima
   - Tanggal Diterima
   - Kondisi Barang

@@ -218,7 +218,7 @@ function getFilteredDocs() {
       if (!isKepGudang && d.status !== 'Approved1') return false;
     }
     if (activeFilter === 'selesai') {
-      if (!['Approved2','Rejected','Purchased','Received'].includes(d.status)) return false;
+      if (!['Rejected','Purchased','Received'].includes(d.status)) return false;
     }
     if (q) {
       const hay = [d.noPerm, d.namaBarang, d.requester, d.lokasi, d.petugasInput].join(' ').toLowerCase();

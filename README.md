@@ -137,7 +137,7 @@ Petugas Gudang juga bisa **membatalkan** PR-nya sendiri selama status masih `Pen
 | **Escape HTML** | Input & output di-escape untuk mencegah XSS |
 | **Pagination** | Query dibatasi 50 dokumen terakhir + info jumlah data |
 | **Offline Support** | Firestore persistence diaktifkan + offline indicator bar |
-| **Sync Sheets** | Fetch sekarang mencoba CORS normal dulu, fallback ke no-cors |
+| **Sync Sheets** | Gunakan `no-cors` karena keterbatasan CORS Apps Script; status sync menggunakan `syncedToSheets` flag |
 | **NoScript** | Halaman tetap menampilkan pesan jika JavaScript dimatikan |
 | **Security Rules** | Role-based access control untuk create, read, update |
 | **Form Validation** | Helper `validateRequired` + `highlightError` dari shared utils |
@@ -157,7 +157,7 @@ Petugas Gudang juga bisa **membatalkan** PR-nya sendiri selama status masih `Pen
 ## ⚠️ Catatan Penting
 
 - **File `firebase-config.js` sudah berisi config asli**. Jika project berbeda, ganti dengan config Anda sendiri.
-- **User & role hardcoded** di `firebase-config.js`. Untuk produksi, pertimbangkan pindah ke Firestore collection `users`.
+- **User & role sekarang WAJIB ada di Firestore collection `users`**. Firestore Security Rules baru memeriksa role dari `/users/{uid}`, bukan dari hardcoded list. Pastikan semua user sudah didaftarkan di Firestore sebelum deploy. Hardcoded list di `firebase-config.js` hanya untuk client-side redirect.
 - **Google Apps Script URL** harus diisi manual di `pembelian.html`.
 - **Composite Index** wajib dibuat di Firebase Console agar query tidak error.
 - **Semua file HTML** sekarang mengandalkan `shared-style.css` dan `shared-utils.js`. Jangan lupa upload ketiga file tersebut bersama HTML.

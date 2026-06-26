@@ -63,49 +63,6 @@ function initOfflineIndicator() {
   update();
 }
 
-// ── Pagination helper ──
-class Paginator {
-  constructor(opts = {}) {
-    this.limit = opts.limit || 50;
-    this.lastDoc = null;
-    this.hasMore = true;
-    this.items = [];
-    this.onLoad = opts.onLoad || (() => {});
-    this.queryFn = opts.queryFn || (() => Promise.resolve([]));
-    this.elBtn = opts.elBtn || null;
-    this.elInfo = opts.elInfo || null;
-  }
-  reset() {
-    this.lastDoc = null;
-    this.hasMore = true;
-    this.items = [];
-  }
-  async loadNext() {
-    if (!this.hasMore) return;
-    if (this.elBtn) { this.elBtn.disabled = true; this.elBtn.innerHTML = '<span class="spinner"></span> Memuat...'; }
-    try {
-      let q = this.queryFn(this.limit);
-      if (this.lastDoc) q = q.startAfter(this.lastDoc);
-      const snap = await q.get();
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      if (docs.length < this.limit) this.hasMore = false;
-      if (docs.length > 0) this.lastDoc = snap.docs[snap.docs.length - 1];
-      this.items.push(...docs);
-      this.onLoad(this.items, docs);
-      if (this.elInfo) this.elInfo.textContent = `Menampilkan ${this.items.length} data`;
-      if (this.elBtn) {
-        this.elBtn.disabled = false;
-        this.elBtn.innerHTML = 'Muat Lebih Banyak';
-        this.elBtn.style.display = this.hasMore ? 'flex' : 'none';
-      }
-    } catch (e) {
-      console.error('Pagination error:', e);
-      showToast('Gagal memuat data. Coba lagi.', 'error');
-      if (this.elBtn) { this.elBtn.disabled = false; this.elBtn.innerHTML = 'Muat Lebih Banyak'; }
-    }
-  }
-}
-
 // ── Generate No. Permintaan (collision-resistant) ──
 async function generateNoPerm() {
   const now = new Date();
@@ -125,10 +82,10 @@ async function generateNoPerm() {
     return `PR-${yy}${mm}${dd}-${String(result).padStart(4, '0')}`;
   } catch (e) {
     console.error('Counter error:', e);
-    // Fallback: timestamp + random
+    // Fallback: timestamp + 6-digit random (jauh lebih aman dari collision)
     const ts = String(Date.now()).slice(-6);
-    const rnd = String(Math.floor(Math.random() * 900) + 100);
-    return `PR-${yy}${mm}${dd}-${ts}${rnd}`;
+    const rnd = String(Math.floor(Math.random() * 900000) + 100000);
+    return `PR-${yy}${mm}${dd}-${ts}-${rnd}`;
   }
 }
 

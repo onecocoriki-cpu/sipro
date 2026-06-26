@@ -50,7 +50,7 @@
     </div>
     <div class="stat-card process">
       <div class="num" id="cnt-process">0</div>
-      <div class="lbl">Sudah Dibeli</div>
+      <div class="lbl">Diproses</div>
     </div>
     <div class="stat-card done">
       <div class="num" id="cnt-done">0</div>
@@ -445,7 +445,7 @@ async function simpanPengiriman() {
 // terkirim ke Apps Script dan data masuk ke Sheets.
 // Content-Type harus 'text/plain' agar request dianggap "simple" (no preflight).
 async function syncSingleToSheets(docId) {
-  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('GANTI')) return;
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('GANTI') || APPS_SCRIPT_URL === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') return;
   const doc = allDocs.find(d => d.id === docId);
   if (!doc) return;
 
@@ -466,7 +466,7 @@ async function syncSingleToSheets(docId) {
 }
 
 async function syncAllToSheets() {
-  if (APPS_SCRIPT_URL === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('GANTI') || APPS_SCRIPT_URL === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
     showToast('URL Apps Script belum diisi.', 'error'); return;
   }
   const btn = document.getElementById('btn-sync-all');

@@ -200,17 +200,50 @@ function updateRekap(ss) {
 
   const data = dataSheet.getRange(2, 1, dataSheet.getLastRow() - 1, HEADERS.length).getValues();
 
+  // ── Parse date string untuk grouping bulan (support berbagai format) ──
+  function parseMonthYear(dateStr) {
+    if (!dateStr) return null;
+    const str = dateStr.toString().trim();
+
+    // Coba parse langsung sebagai Date (ISO, MM/DD/YYYY, dsb)
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${mm}/${yyyy}`;
+    }
+
+    // Format Indonesia: "25 Jun 2025" atau "25 Juni 2025"
+    const parts = str.split(' ');
+    if (parts.length >= 3) {
+      const monthMap = {
+        'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'mei': '05', 'jun': '06',
+        'jul': '07', 'agu': '08', 'sep': '09', 'okt': '10', 'nov': '11', 'des': '12'
+      };
+      const m = monthMap[parts[1].toLowerCase().substring(0, 3)];
+      if (m) {
+        const y = parts[2].substring(0, 4);
+        return `${m}/${y}`;
+      }
+    }
+
+    // Format slash: "25/06/2025" atau "25/6/2025"
+    const slashParts = str.split('/');
+    if (slashParts.length >= 3) {
+      const mm = String(parseInt(slashParts[1])).padStart(2, '0');
+      const yyyy = slashParts[2].substring(0, 4);
+      return `${mm}/${yyyy}`;
+    }
+
+    return null;
+  }
+
   // Group by bulan (dari kolom tanggalInput)
   const byMonth = {};
   data.forEach(row => {
     const tgl = row[1];
-    if (!tgl) return;
-    const dateStr = tgl.toString();
-    const parts = dateStr.split('/');
-    const month = parts.length >= 3
-      ? `${parts[1]}/${parts[2]?.substring(0, 4) || new Date().getFullYear()}`
-      : dateStr.substring(0, 7);
-
+    const month = parseMonthYear(tgl);
+    if (!month) return;
     if (!byMonth[month]) byMonth[month] = { total: 0, approved: 0, rejected: 0, totalBeli: 0, countBeli: 0 };
     byMonth[month].total++;
     if (['Approved2', 'Purchased', 'Received'].includes(row[11])) byMonth[month].approved++;

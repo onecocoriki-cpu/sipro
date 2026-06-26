@@ -102,7 +102,8 @@ function redirectByRole(role) {
    ============================================================ */
 async function requireAuth(allowedRoles) {
   return new Promise(resolve => {
-    auth.onAuthStateChanged(async user => {
+    const unsubscribe = auth.onAuthStateChanged(async user => {
+      unsubscribe(); // Unsubscribe agar tidak memory leak
       if (!user) { resolve(null); return; }
       const info = await getCurrentUserInfo();
       if (!info || (allowedRoles && !allowedRoles.includes(info.role))) {

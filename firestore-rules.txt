@@ -7,6 +7,30 @@ service cloud.firestore {
     }
 
     // ============================================================
+    //  ROLE HELPERS
+    //  ⚠️  User harus punya dokumen di /users/{uid} dengan field role
+    //      Supaya berfungsi, daftarkan semua user ke collection 'users'
+    //      atau gunakan Firebase Admin SDK untuk set custom claims.
+    // ============================================================
+    function getUserRole() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc.exists ? userDoc.data.role : null;
+    }
+
+    function isGudang()     { return getUserRole() == 'gudang'; }
+    function isKepGudang()  { return getUserRole() == 'kepala_gudang'; }
+    function isManager()    { return getUserRole() == 'manager'; }
+    function isPembelian()  { return getUserRole() == 'pembelian'; }
+
+    function isOwner(doc) {
+      return request.auth.uid == doc.data.petugasUID;
+    }
+
+    function onlyChanged(fields) {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(fields);
+    }
+
+    // ============================================================
     //  USERS collection
     // ============================================================
     match /users/{userId} {
@@ -26,38 +50,49 @@ service cloud.firestore {
         && request.resource.data.status == 'Pending';
 
       // UPDATE: dibatasi berdasarkan role & field yang boleh diubah
+      // Semua pakai hasOnly() agar tidak ada field injection
       allow update: if isAuthenticated() && (
-        // Petugas gudang: batalin PR milik sendiri
-        (request.auth.uid == resource.data.petugasUID
+
+        // ── Petugas gudang: batalin PR milik sendiri ──
+        (isOwner(resource)
           && request.resource.data.status == 'Rejected'
-          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','statusLabel','catatanApproval']))
-        ||
-        // Kepala gudang: approve/reject PR yang Pending
-        (resource.data.status == 'Pending'
+          && onlyChanged(['status','statusLabel','catatanApproval','syncedToSheets']))
+
+        // ── Kepala gudang: approve/reject PR yang Pending ──
+        || (isKepGudang()
+          && resource.data.status == 'Pending'
           && (request.resource.data.status == 'Approved1' || request.resource.data.status == 'Rejected')
-          && request.resource.data.diff(resource.data).changedKeys().hasAny(['status','statusLabel','catatanApproval','approvalKepGudang','syncedToSheets']))
-        ||
-        // Manager: approve/reject PR yang Approved1
-        (resource.data.status == 'Approved1'
+          && onlyChanged(['status','statusLabel','catatanApproval','approvalKepGudang','syncedToSheets']))
+
+        // ── Manager: approve/reject PR yang Approved1 ──
+        || (isManager()
+          && resource.data.status == 'Approved1'
           && (request.resource.data.status == 'Approved2' || request.resource.data.status == 'Rejected')
-          && request.resource.data.diff(resource.data).changedKeys().hasAny(['status','statusLabel','catatanApproval','approvalManager','syncedToSheets']))
-        ||
-        // Pembelian: update ke Purchased (dengan pembelian) atau tambah pengiriman
-        (((resource.data.status == 'Approved2' && request.resource.data.status == 'Purchased')
-           || (resource.data.status == 'Purchased' && request.resource.data.status == 'Purchased'
-               && request.resource.data.diff(resource.data).changedKeys().hasAny(['pengiriman','statusLabel','syncedToSheets'])))
-          && request.resource.data.diff(resource.data).changedKeys().hasAny(['status','statusLabel','pembelian','pengiriman','syncedToSheets']))
-        ||
-        // Pembelian: sync ke Sheets (hanya ubah syncedToSheets)
-        ((resource.data.status == 'Purchased' || resource.data.status == 'Received')
-          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['syncedToSheets']))
-        ||
-        // Petugas gudang: terima barang yang sudah dibeli dan dikirim (Purchased → Received)
-        (request.auth.uid == resource.data.petugasUID
+          && onlyChanged(['status','statusLabel','catatanApproval','approvalManager','syncedToSheets']))
+
+        // ── Pembelian: proses pembelian (Approved2 → Purchased) ──
+        || (isPembelian()
+          && resource.data.status == 'Approved2'
+          && request.resource.data.status == 'Purchased'
+          && onlyChanged(['status','statusLabel','pembelian','syncedToSheets']))
+
+        // ── Pembelian: tambah info pengiriman (Purchased tetap) ──
+        || (isPembelian()
+          && resource.data.status == 'Purchased'
+          && request.resource.data.status == 'Purchased'
+          && onlyChanged(['pengiriman','statusLabel','syncedToSheets']))
+
+        // ── Pembelian: sync ke Sheets (hanya ubah syncedToSheets) ──
+        || (isPembelian()
+          && (resource.data.status == 'Purchased' || resource.data.status == 'Received')
+          && onlyChanged(['syncedToSheets']))
+
+        // ── Petugas gudang: terima barang (Purchased → Received) ──
+        || (isOwner(resource)
           && resource.data.status == 'Purchased'
           && resource.data.pengiriman != null
           && request.resource.data.status == 'Received'
-          && request.resource.data.diff(resource.data).changedKeys().hasAny(['status','statusLabel','penerimaan','syncedToSheets']))
+          && onlyChanged(['status','statusLabel','penerimaan','syncedToSheets']))
       );
 
       // DELETE: tidak diizinkan dari client

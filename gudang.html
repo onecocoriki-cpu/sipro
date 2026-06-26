@@ -414,7 +414,7 @@ async function submitPermintaan() {
     namaBarang: escapeHtml(document.getElementById('nama-barang').value.trim()),
     jumlah: Number(document.getElementById('jumlah').value),
     satuan: document.getElementById('satuan').value,
-    keperluan: document.getElementById('keperluan').value,
+    keperluan: escapeHtml(document.getElementById('keperluan').value.trim()),
     keterangan: escapeHtml(document.getElementById('keterangan').value.trim()),
     prioritas,
     petugasInput: currentUser.nama,
@@ -517,7 +517,7 @@ function loadRiwayat() {
         return `<tr>
           <td><b>${escapeHtml(d.noPerm)}</b></td>
           <td>${tgl}</td>
-          <td>${escapeHtml(d.namaBarang)}<br><small style="color:var(--muted)">${d.jumlah} ${d.satuan} · ${d.keperluan}</small></td>
+          <td>${escapeHtml(d.namaBarang)}<br><small style="color:var(--muted)">${d.jumlah} ${d.satuan} · ${escapeHtml(d.keperluan)}</small></td>
           <td>${d.jumlah} ${d.satuan}</td>
           <td class="pr-${d.prioritas?.toLowerCase()}">${d.prioritas}</td>
           <td>${badgeStatus(d.status)}</td>
@@ -569,7 +569,7 @@ function loadBarangDibeli() {
           aksi = '—';
         } else if (d.status === 'Purchased' && d.pengiriman) {
           statusBadge = `<span class="badge-dikirim">Dikirim</span>`;
-          aksi = `<button class="btn-terima" onclick="openTerimaModal('${escapeHtml(d.noPerm || d.id)}')">Terima</button>`;
+          aksi = `<button class="btn-terima" onclick="openTerimaModal('${escapeHtml(doc.id)}')">Terima</button>`;
         } else {
           statusBadge = `<span class="badge-menunggu">Menunggu</span>`;
           aksi = '—';
