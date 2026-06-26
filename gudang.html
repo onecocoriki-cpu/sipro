@@ -142,25 +142,14 @@
 
           <!-- Keperluan -->
           <div class="field full">
-            <label for="keperluan">Untuk Kebutuhan Apa <span class="req">*</span></label>
-            <select id="keperluan" required>
-              <option value="">— Pilih kebutuhan —</option>
-              <option>Operasional Harian</option>
-              <option>Perlengkapan Gudang</option>
-              <option>Keselamatan Kerja (K3)</option>
-              <option>Penggantian Alat Rusak</option>
-              <option>Proyek / Kegiatan Khusus</option>
-              <option>Kebutuhan Kantor</option>
-              <option>Bahan Baku Produksi</option>
-              <option>Pemeliharaan / Perawatan</option>
-              <option>Lainnya</option>
-            </select>
+            <label for="keperluan">Kebutuhan / Keperluan Barang <span class="req">*</span> <span class="hint">(tulis sesuai keperluan)</span></label>
+            <textarea id="keperluan" placeholder="Contoh: Penggantian printer Canon MP287 yang rusak di kantor admin, Pengadaan kardus untuk packing bulanan, dll." required></textarea>
           </div>
 
           <!-- Keterangan -->
           <div class="field full">
             <label for="keterangan">Keterangan Tambahan <span class="hint">(opsional)</span></label>
-            <textarea id="keterangan" placeholder="Spesifikasi, merek, atau catatan tambahan yang perlu diketahui tim pembelian..."></textarea>
+            <textarea id="keterangan" placeholder="Spesifikasi teknis, merek yang diinginkan, warna, ukuran, atau catatan tambahan yang perlu diketahui tim pembelian..."></textarea>
           </div>
 
           <!-- Prioritas -->
@@ -274,12 +263,19 @@ function initPage() {
 
 // ── Panel Switch ──
 function showPanel(name, btn) {
+  console.log('DEBUG: showPanel dipanggil dengan name:', name);
   document.getElementById('panel-form').style.display = name === 'form' ? '' : 'none';
   document.getElementById('panel-riwayat').style.display = name === 'riwayat' ? '' : 'none';
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
-  if (name === 'riwayat') loadRiwayat();
-  else if (riwayatUnsub) { riwayatUnsub(); riwayatUnsub = null; }
+  if (name === 'riwayat') {
+    console.log('DEBUG: Memanggil loadRiwayat');
+    loadRiwayat();
+  } else if (riwayatUnsub) {
+    console.log('DEBUG: Unsubscribing riwayat');
+    riwayatUnsub();
+    riwayatUnsub = null;
+  }
 }
 
 // ── Submit ──
@@ -378,12 +374,17 @@ async function batalPermintaan(noPerm) {
 
 // ── Load Riwayat ──
 function loadRiwayat() {
-  if (riwayatUnsub) return;
+  if (riwayatUnsub) { console.log('DEBUG: riwayatUnsub sudah ada, skip'); return; }
+  if (!currentUser) { console.error('DEBUG: currentUser null!'); showToast('User belum terload. Refresh halaman.', 'error'); return; }
+  console.log('DEBUG: Loading riwayat untuk UID:', currentUser.uid);
+  
   riwayatUnsub = db.collection('permintaan')
     .where('petugasUID', '==', currentUser.uid)
     .orderBy('tanggalInput', 'desc')
     .limit(50)
     .onSnapshot(snap => {
+      console.log('DEBUG: Snap size:', snap.size);
+      console.log('DEBUG: Docs:', snap.docs.map(d => ({ id: d.id, noPerm: d.data().noPerm, petugasUID: d.data().petugasUID })));
       const tbody = document.getElementById('tabel-riwayat');
       document.getElementById('riwayat-info').textContent = `Menampilkan ${snap.size} permintaan terakhir`;
       if (snap.empty) {
