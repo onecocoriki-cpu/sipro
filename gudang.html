@@ -569,7 +569,7 @@ function loadBarangDibeli() {
           aksi = '—';
         } else if (d.status === 'Purchased' && d.pengiriman) {
           statusBadge = `<span class="badge-dikirim">Dikirim</span>`;
-          aksi = `<button class="btn-terima" onclick="openTerimaModal('${d.id}')">Terima</button>`;
+          aksi = `<button class="btn-terima" onclick="openTerimaModal('${escapeHtml(d.noPerm || d.id)}')">Terima</button>`;
         } else {
           statusBadge = `<span class="badge-menunggu">Menunggu</span>`;
           aksi = '—';
@@ -598,10 +598,12 @@ function loadBarangDibeli() {
 
 // ── Modal Penerimaan ──
 async function openTerimaModal(id) {
+  if (!id) { showToast('ID dokumen tidak valid.', 'error'); return; }
   try {
-    const doc = await db.collection('permintaan').doc(id).get();
-    if (!doc.exists) { showToast('Data tidak ditemukan.', 'error'); return; }
-    selectedDoc = { id: doc.id, ...doc.data() };
+    const docRef = db.collection('permintaan').doc(id);
+    const doc = await docRef.get();
+    if (!doc.exists) { showToast('Data tidak ditemukan. ID: ' + id, 'error'); return; }
+    selectedDoc = { id: doc.id, _ref: docRef, ...doc.data() };
     const d = selectedDoc;
 
     document.getElementById('modal-title').textContent = `Terima Barang — ${d.noPerm}`;
@@ -649,7 +651,8 @@ async function simpanPenerimaan() {
   btn.innerHTML = '<span class="spinner"></span> Menyimpan...';
 
   try {
-    await db.collection('permintaan').doc(selectedDoc.id).update({
+    const docRef = selectedDoc._ref || db.collection('permintaan').doc(selectedDoc.id);
+    await docRef.update({
       status: 'Received',
       statusLabel: 'Selesai — Barang Diterima Gudang',
       syncedToSheets: false,
