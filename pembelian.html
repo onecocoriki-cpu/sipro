@@ -197,7 +197,7 @@
 // ============================================================
 //  GANTI INI dengan URL Google Apps Script Anda
 // ============================================================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzZbBAluIL0BuesdyWEypoc5FvCCcO5ueSgD8UqqtNgLqsyjiVSk74BhvK9JiCH3CcvfQ/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDlM0cahfMYYVpSN9EyiU1yOiT5QZF50Nq8Eo9IZRicAVgnGD_70yxUBUFEvACUvG36Q/exec';
 
 let currentUser  = null;
 let allDocs      = [];
@@ -438,35 +438,30 @@ async function simpanPengiriman() {
   setBtnLoading('btn-simpan-kirim', false, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Dikirim ke Gudang');
 }
 
-// ── Sync ke Google Sheets (improved) ──
+// ── Sync ke Google Sheets ──
+// Google Apps Script tidak mengirim header CORS pada preflight OPTIONS,
+// sehingga fetch biasa selalu diblok browser. Solusi: gunakan mode: 'no-cors'
+// langsung. Response akan "opaque" (tidak bisa dibaca), tapi request tetap
+// terkirim ke Apps Script dan data masuk ke Sheets.
+// Content-Type harus 'text/plain' agar request dianggap "simple" (no preflight).
 async function syncSingleToSheets(docId) {
-  if (APPS_SCRIPT_URL === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') return;
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('GANTI')) return;
   const doc = allDocs.find(d => d.id === docId);
   if (!doc) return;
 
   try {
-    const response = await fetch(APPS_SCRIPT_URL, {
+    await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' }, // simple header — tidak picu preflight
       body: JSON.stringify(buildSheetRow(doc)),
     });
-    if (response.ok) {
-      await db.collection('permintaan').doc(docId).update({ syncedToSheets: true });
-    } else {
-      throw new Error('HTTP ' + response.status);
-    }
+    // Dengan no-cors kita tidak bisa baca response, asumsikan sukses jika tidak throw
+    await db.collection('permintaan').doc(docId).update({ syncedToSheets: true });
+    console.log('Sync terkirim (no-cors):', doc.noPerm);
   } catch (e) {
-    console.error('Sync error (CORS mungkin):', e);
-    try {
-      await fetch(APPS_SCRIPT_URL, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildSheetRow(doc)),
-      });
-      await db.collection('permintaan').doc(docId).update({ syncedToSheets: true });
-    } catch (e2) {
-      console.error('Sync fallback error:', e2);
-    }
+    console.error('Sync error:', e);
+    // Tidak update syncedToSheets agar bisa dicoba ulang via tombol Sync All
   }
 }
 
@@ -484,7 +479,7 @@ async function syncAllToSheets() {
     try {
       await fetch(APPS_SCRIPT_URL, {
         method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(buildSheetRow(doc)),
       });
       await db.collection('permintaan').doc(doc.id).update({ syncedToSheets: true });

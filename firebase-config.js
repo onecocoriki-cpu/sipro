@@ -17,13 +17,19 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Enable offline persistence (best-effort)
+// Enable offline persistence (multi-tab, menggunakan API baru)
+// Catatan: db.settings() harus dipanggil SEBELUM operasi Firestore apapun
 try {
-  db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+  db.settings({
+    cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED,
+  });
+  db.enableMultiTabIndexedDbPersistence().catch(err => {
     if (err.code === 'failed-precondition') {
-      console.warn('Firestore persistence: multiple tabs open');
+      // Fallback: single-tab persistence jika multi-tab tidak bisa
+      db.enablePersistence().catch(() => {});
+      console.warn('Firestore: fallback ke single-tab persistence');
     } else if (err.code === 'unimplemented') {
-      console.warn('Firestore persistence: browser tidak mendukung');
+      console.warn('Firestore persistence: browser tidak mendukung IndexedDB');
     }
   });
 } catch (e) {
