@@ -197,7 +197,7 @@
 // ============================================================
 //  GANTI INI dengan URL Google Apps Script Anda
 // ============================================================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzZbBAluIL0BuesdyWEypoc5FvCCcO5ueSgD8UqqtNgLqsyjiVSk74BhvK9JiCH3CcvfQ/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDlM0cahfMYYVpSN9EyiU1yOiT5QZF50Nq8Eo9IZRicAVgnGD_70yxUBUFEvACUvG36Q/exec';
 
 let currentUser  = null;
 let allDocs      = [];
@@ -430,8 +430,9 @@ async function simpanPengiriman() {
       }
     });
     showToast('✓ Barang dikonfirmasi dikirim ke gudang!', 'success');
+    const docId = selectedDoc.id;
     closeModal();
-    setTimeout(() => syncSingleToSheets(selectedDoc.id), 1000);
+    setTimeout(() => syncSingleToSheets(docId), 1000);
   } catch (e) { console.error(e); showToast('Gagal menyimpan. Coba lagi.', 'error'); }
 
   setBtnLoading('btn-simpan-kirim', false, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Dikirim ke Gudang');
