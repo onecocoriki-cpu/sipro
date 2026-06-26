@@ -528,19 +528,22 @@ function loadBarangDibeli() {
   if (barangDibeliUnsub) return;
   barangDibeliUnsub = db.collection('permintaan')
     .where('petugasUID', '==', currentUser.uid)
-    .where('status', 'in', ['Purchased', 'Received'])
     .orderBy('tanggalInput', 'desc')
     .limit(50)
     .onSnapshot(snap => {
+      const docs = snap.docs.filter(doc => {
+        const status = doc.data().status;
+        return status === 'Purchased' || status === 'Received';
+      });
       const tbody = document.getElementById('tabel-barang-dibeli');
-      document.getElementById('barang-dibeli-info').textContent = `Menampilkan ${snap.size} data`;
-      if (snap.size === 0) {
+      document.getElementById('barang-dibeli-info').textContent = `Menampilkan ${docs.length} data`;
+      if (docs.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
           <p>Belum ada barang yang dibeli</p></div></td></tr>`;
         return;
       }
-      tbody.innerHTML = snap.docs.map(doc => {
+      tbody.innerHTML = docs.map(doc => {
         const d = doc.data();
         const tgl = d.approvalManager?.waktu?.toDate ? formatTgl(d.approvalManager.waktu.toDate()) : '—';
         const totalHarga = d.pembelian?.totalHarga ? formatRp(d.pembelian.totalHarga) : '—';
