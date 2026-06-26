@@ -384,17 +384,22 @@ function loadRiwayat() {
     .limit(50)
     .onSnapshot(snap => {
       console.log('DEBUG: Snap size:', snap.size);
+      console.log('DEBUG: Snap empty:', snap.empty);
       console.log('DEBUG: Docs:', snap.docs.map(d => ({ id: d.id, noPerm: d.data().noPerm, petugasUID: d.data().petugasUID })));
       const tbody = document.getElementById('tabel-riwayat');
+      console.log('DEBUG: tbody element:', tbody);
       document.getElementById('riwayat-info').textContent = `Menampilkan ${snap.size} permintaan terakhir`;
-      if (snap.empty) {
+      if (snap.size === 0) {
+        console.log('DEBUG: Masuk ke empty state');
         tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
           <p>Belum ada permintaan</p></div></td></tr>`;
         return;
       }
-      tbody.innerHTML = snap.docs.map(doc => {
+      console.log('DEBUG: Render docs...');
+      const html = snap.docs.map(doc => {
         const d = doc.data();
+        console.log('DEBUG: Render doc:', d.noPerm, d.namaBarang);
         const tgl = d.tanggalInput?.toDate ? formatTgl(d.tanggalInput.toDate()) : '—';
         const batalBtn = d.status === 'Pending'
           ? `<button class="btn-batal" onclick="batalPermintaan('${escapeHtml(d.noPerm)}')">Batal</button>`
@@ -410,6 +415,10 @@ function loadRiwayat() {
           <td>${batalBtn}</td>
         </tr>`;
       }).join('');
+      console.log('DEBUG: HTML length:', html.length);
+      console.log('DEBUG: HTML:', html.substring(0, 200));
+      tbody.innerHTML = html;
+      console.log('DEBUG: Render done');
     }, err => {
       console.error('Riwayat error:', err);
       if (err.code === 'failed-precondition') {
