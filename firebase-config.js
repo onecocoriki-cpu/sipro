@@ -67,7 +67,17 @@ async function ensureUserDoc() {
   console.log('[ensureUserDoc] Cek users/' + user.uid);
 
   try {
-    const doc = await db.collection('users').doc(user.uid).get();
+    // Coba baca dari server (bukan cache) untuk memastikan dokumen sudah tersinkron
+    let doc;
+    try {
+      doc = await db.collection('users').doc(user.uid).get({ source: 'server' });
+      console.log('[ensureUserDoc] Server read OK');
+    } catch (serverErr) {
+      // Kalau gagal baca server (offline), fallback ke cache
+      console.warn('[ensureUserDoc] Server read gagal, pakai cache:', serverErr.message);
+      doc = await db.collection('users').doc(user.uid).get();
+    }
+
     if (!doc.exists) {
       console.log('[ensureUserDoc] Dokumen belum ada, membuat...');
       await db.collection('users').doc(user.uid).set({
