@@ -79,6 +79,7 @@
 // Cek jika sudah login
 auth.onAuthStateChanged(async user => {
   if (user) {
+    await ensureUserDoc(); // ← Auto-create users/{uid} jika belum ada
     const info = await getCurrentUserInfo();
     if (info) redirectByRole(info.role);
   }

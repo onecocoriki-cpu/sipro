@@ -47,6 +47,7 @@ function showToast(msg, type = '') {
 
 // ── Logout ──
 function logout() {
+  clearUserInfoCache(); // Reset cache & userDoc flag agar user berikutnya auto-create
   auth.signOut().then(() => window.location.href = 'index.html');
 }
 

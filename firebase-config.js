@@ -44,44 +44,45 @@ let __currentUserInfoCache = null;
 
 function clearUserInfoCache() {
   __currentUserInfoCache = null;
-  __userDocEnsured = false;
 }
 
 /* ============================================================
    Auto-init dokumen users/{uid} di Firestore
-   → Dipanggil sekali per session di setiap halaman
-   → Supaya Firestore Security Rules bisa baca role user
+   → SELALU cek dan buat jika belum ada
+   → Dipanggil di awal setiap halaman setelah login
    ============================================================ */
-let __userDocEnsured = false;
-
 async function ensureUserDoc() {
-  if (__userDocEnsured) return;
   const user = auth.currentUser;
-  if (!user) return;
+  if (!user) {
+    console.warn('[ensureUserDoc] Tidak ada user yang login');
+    return;
+  }
 
   const local = USER_ROLES[user.email];
   if (!local) {
-    console.warn('Email', user.email, 'tidak terdaftar di USER_ROLES');
-    __userDocEnsured = true;
+    console.warn('[ensureUserDoc] Email', user.email, 'tidak terdaftar di USER_ROLES');
     return;
   }
+
+  console.log('[ensureUserDoc] Cek users/' + user.uid);
 
   try {
     const doc = await db.collection('users').doc(user.uid).get();
     if (!doc.exists) {
+      console.log('[ensureUserDoc] Dokumen belum ada, membuat...');
       await db.collection('users').doc(user.uid).set({
         role: local.role,
         nama: local.nama,
         lokasi: local.lokasi,
       });
-      console.log('✓ Auto-created users/' + user.uid);
+      console.log('[ensureUserDoc] ✓ Berhasil membuat users/' + user.uid);
     } else {
-      console.log('✓ users/' + user.uid + ' sudah ada');
+      console.log('[ensureUserDoc] ✓ Dokumen sudah ada');
     }
   } catch (e) {
-    console.error('✗ ensureUserDoc error:', e.code, e.message);
+    console.error('[ensureUserDoc] ✗ GAGAL:', e.code, e.message);
+    console.error('[ensureUserDoc]   → Pastikan Firestore Rules sudah di-publish dengan allow create di users/{uid}');
   }
-  __userDocEnsured = true;
 }
 
 /* ============================================================
