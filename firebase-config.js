@@ -42,17 +42,56 @@ const USER_ROLES = {
 // Cache user info untuk session ini
 let __currentUserInfoCache = null;
 
+function clearUserInfoCache() {
+  __currentUserInfoCache = null;
+  __userDocEnsured = false;
+}
+
+/* ============================================================
+   Auto-init dokumen users/{uid} di Firestore
+   → Dipanggil sekali per session di setiap halaman
+   → Supaya Firestore Security Rules bisa baca role user
+   ============================================================ */
+let __userDocEnsured = false;
+
+async function ensureUserDoc() {
+  if (__userDocEnsured) return;
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const local = USER_ROLES[user.email];
+  if (!local) {
+    console.warn('Email', user.email, 'tidak terdaftar di USER_ROLES');
+    __userDocEnsured = true;
+    return;
+  }
+
+  try {
+    const doc = await db.collection('users').doc(user.uid).get();
+    if (!doc.exists) {
+      await db.collection('users').doc(user.uid).set({
+        role: local.role,
+        nama: local.nama,
+        lokasi: local.lokasi,
+      });
+      console.log('✓ Auto-created users/' + user.uid);
+    } else {
+      console.log('✓ users/' + user.uid + ' sudah ada');
+    }
+  } catch (e) {
+    console.error('✗ ensureUserDoc error:', e.code, e.message);
+  }
+  __userDocEnsured = true;
+}
+
 /* ============================================================
    Ambil info user yang sedang login
-   → Auto-create dokumen users/{uid} di Firestore jika belum ada
-     (supaya Firestore Security Rules bisa baca role)
    ============================================================ */
 async function getCurrentUserInfo() {
   if (__currentUserInfoCache) return __currentUserInfoCache;
   const user = auth.currentUser;
   if (!user) return null;
 
-  // Cek daftar lokal dulu
   const local = USER_ROLES[user.email];
 
   // Coba baca dari Firestore
@@ -73,30 +112,9 @@ async function getCurrentUserInfo() {
     console.error('getCurrentUserInfo Firestore error:', e);
   }
 
-  // Dokumen users/{uid} belum ada → auto-create dari daftar lokal
-  if (local) {
-    const userData = { uid: user.uid, email: user.email, ...local };
-    try {
-      await db.collection('users').doc(user.uid).set({
-        role: local.role,
-        nama: local.nama,
-        lokasi: local.lokasi,
-      });
-      console.log('Auto-created users/' + user.uid);
-    } catch (e) {
-      console.error('Auto-create users error:', e);
-    }
-    __currentUserInfoCache = userData;
-    return __currentUserInfoCache;
-  }
-
   // Fallback: user tidak terdaftar di daftar lokal
   __currentUserInfoCache = { uid: user.uid, email: user.email, role: 'gudang', nama: user.email, lokasi: '-' };
   return __currentUserInfoCache;
-}
-
-function clearUserInfoCache() {
-  __currentUserInfoCache = null;
 }
 
 /* ============================================================
@@ -128,4 +146,3 @@ async function requireAuth(allowedRoles) {
     });
   });
 }
-
