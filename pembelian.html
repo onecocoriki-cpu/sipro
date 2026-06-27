@@ -200,6 +200,11 @@
 <script>
 
 let currentUser  = null;
+
+// ── LOCAL FALLBACK: APPS_SCRIPT_URL ──
+// Pastikan selalu tersedia meskipun firebase-config.js bermasalah
+const APPS_SCRIPT_URL = (typeof window !== 'undefined' && window.APPS_SCRIPT_URL) 
+  || 'https://script.google.com/macros/s/AKfycbwDlM0cahfMYYVpSN9EyiU1yOiT5QZF50Nq8Eo9IZRicAVgnGD_70yxUBUFEvACUvG36Q/exec';
 let allDocs      = [];
 let activeFilter = 'ready';
 let selectedDoc  = null;
@@ -469,7 +474,10 @@ async function simpanPengiriman() {
 
 // FIX: Helper auto-sync setelah update berhasil
 async function autoSyncAfterUpdate(docId) {
-  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('GANTI') || APPS_SCRIPT_URL === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
+  const url = (typeof APPS_SCRIPT_URL !== 'undefined' && APPS_SCRIPT_URL) 
+    || (typeof window !== 'undefined' && window.APPS_SCRIPT_URL) 
+    || '';
+  if (!url || url.includes('GANTI') || url === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
     console.warn('[AutoSync] APPS_SCRIPT_URL belum diisi, skip sync');
     return;
   }
@@ -488,7 +496,7 @@ async function autoSyncAfterUpdate(docId) {
 
     console.log('[AutoSync] Memulai sync untuk:', doc.noPerm);
     try {
-      await fetch(APPS_SCRIPT_URL, {
+      await fetch(url, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },

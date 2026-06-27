@@ -28,6 +28,13 @@ db.enablePersistence({ synchronizeTabs: true }).catch(err => {
 });
 
 /* ============================================================
+   GOOGLE APPS SCRIPT URL (untuk sync ke Sheets)
+   → Bisa diakses dari semua halaman via shared-utils.js
+   ============================================================ */
+var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDlM0cahfMYYVpSN9EyiU1yOiT5QZF50Nq8Eo9IZRicAVgnGD_70yxUBUFEvACUvG36Q/exec';
+window.APPS_SCRIPT_URL = APPS_SCRIPT_URL;  // ensure global access
+
+/* ============================================================
    DAFTAR USER & ROLE
    ============================================================ */
 const USER_ROLES = {

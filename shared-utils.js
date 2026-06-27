@@ -142,3 +142,98 @@ function highlightError(el) {
 document.addEventListener('DOMContentLoaded', () => {
   initOfflineIndicator();
 });
+
+/* ============================================================
+   SYNC KE GOOGLE SHEETS (Shared)
+   → Bisa dipakai dari pembelian.html maupun gudang.html
+   ============================================================ */
+
+// Google Apps Script tidak mengirim header CORS pada preflight OPTIONS,
+// sehingga fetch biasa selalu diblok browser. Solusi: gunakan mode: 'no-cors'
+// langsung. Response akan "opaque" (tidak bisa dibaca), tapi request tetap
+// terkirim ke Apps Script dan data masuk ke Sheets.
+// Content-Type harus 'text/plain' agar request dianggap "simple" (no preflight).
+// Guard: pastikan APPS_SCRIPT_URL tersedia
+function getAppsScriptUrl() {
+  return (typeof APPS_SCRIPT_URL !== 'undefined' && APPS_SCRIPT_URL) 
+    || (typeof window !== 'undefined' && window.APPS_SCRIPT_URL) 
+    || '';
+}
+
+async function syncSingleToSheets(doc) {
+  const url = getAppsScriptUrl();
+  if (!url || url.includes('GANTI') || url === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
+    console.warn('[syncSingleToSheets] APPS_SCRIPT_URL belum diisi');
+    return;
+  }
+  if (!doc) return;
+
+  try {
+    await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(buildSheetRow(doc)),
+    });
+    // Dengan no-cors kita tidak bisa baca response, asumsikan sukses jika tidak throw
+    await db.collection('permintaan').doc(doc.id).update({ syncedToSheets: true });
+    console.log('[syncSingleToSheets] ✓ Sync terkirim:', doc.noPerm);
+  } catch (e) {
+    console.error('[syncSingleToSheets] ✗ Gagal:', e);
+  }
+}
+
+async function syncAllToSheets(docs) {
+  const url = getAppsScriptUrl();
+  if (!url || url.includes('GANTI') || url === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
+    console.warn('[syncAllToSheets] APPS_SCRIPT_URL belum diisi');
+    return;
+  }
+  const toSync = docs.filter(d => !d.syncedToSheets && ['Purchased','Received'].includes(d.status));
+  if (!toSync.length) { console.log('[syncAllToSheets] Semua data sudah tersync'); return; }
+
+  console.log('[syncAllToSheets] Syncing', toSync.length, 'items...');
+  let ok = 0;
+  for (const doc of toSync) {
+    try {
+      await fetch(url, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(buildSheetRow(doc)),
+      });
+      await db.collection('permintaan').doc(doc.id).update({ syncedToSheets: true });
+      ok++;
+    } catch (e) { console.error('[syncAllToSheets] Item gagal:', doc.noPerm, e); }
+  }
+  console.log('[syncAllToSheets] ✓', ok, 'data berhasil disync');
+}
+
+function buildSheetRow(d) {
+  return {
+    noPerm:         d.noPerm,
+    tanggalInput:   d.tanggalInput?.toDate ? formatTgl(d.tanggalInput.toDate()) : '',
+    lokasi:         d.lokasi,
+    requester:      d.requester,
+    petugasInput:   d.petugasInput,
+    namaBarang:     d.namaBarang,
+    jumlah:         d.jumlah,
+    satuan:         d.satuan,
+    keperluan:      d.keperluan,
+    keterangan:     d.keterangan,
+    prioritas:      d.prioritas,
+    statusAkhir:    d.status,
+    approvedKepGudang: d.approvalKepGudang?.nama || '',
+    approvedManager:   d.approvalManager?.nama   || '',
+    supplier:       d.pembelian?.supplier   || '',
+    noPO:           d.pembelian?.noPO       || '',
+    hargaSatuan:    d.pembelian?.hargaSatuan || 0,
+    totalHarga:     d.pembelian?.totalHarga  || 0,
+    tglBeli:        d.pembelian?.tglBeli     || '',
+    tglKirim:       d.pengiriman?.tglKirim   || '',
+    catatanKirim:   d.pengiriman?.catatanKirim || '',
+    jmlDiterima:    d.penerimaan?.jumlahDiterima || '',
+    tglTerima:      d.penerimaan?.tglTerima      || '',
+    kondisi:        d.penerimaan?.kondisi         || '',
+    penerima:       d.penerimaan?.penerima        || '',
+  };
+}
