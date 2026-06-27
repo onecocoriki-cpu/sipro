@@ -44,20 +44,18 @@ let __currentUserInfoCache = null;
 
 /* ============================================================
    Ambil info user yang sedang login
+   → Auto-create dokumen users/{uid} di Firestore jika belum ada
+     (supaya Firestore Security Rules bisa baca role)
    ============================================================ */
 async function getCurrentUserInfo() {
   if (__currentUserInfoCache) return __currentUserInfoCache;
   const user = auth.currentUser;
   if (!user) return null;
 
-  // Cek di daftar lokal dulu
+  // Cek daftar lokal dulu
   const local = USER_ROLES[user.email];
-  if (local) {
-    __currentUserInfoCache = { uid: user.uid, email: user.email, ...local };
-    return __currentUserInfoCache;
-  }
 
-  // Fallback: cek Firestore collection users
+  // Coba baca dari Firestore
   try {
     const doc = await db.collection('users').doc(user.uid).get();
     if (doc.exists) {
@@ -75,7 +73,24 @@ async function getCurrentUserInfo() {
     console.error('getCurrentUserInfo Firestore error:', e);
   }
 
-  // Default fallback
+  // Dokumen users/{uid} belum ada → auto-create dari daftar lokal
+  if (local) {
+    const userData = { uid: user.uid, email: user.email, ...local };
+    try {
+      await db.collection('users').doc(user.uid).set({
+        role: local.role,
+        nama: local.nama,
+        lokasi: local.lokasi,
+      });
+      console.log('Auto-created users/' + user.uid);
+    } catch (e) {
+      console.error('Auto-create users error:', e);
+    }
+    __currentUserInfoCache = userData;
+    return __currentUserInfoCache;
+  }
+
+  // Fallback: user tidak terdaftar di daftar lokal
   __currentUserInfoCache = { uid: user.uid, email: user.email, role: 'gudang', nama: user.email, lokasi: '-' };
   return __currentUserInfoCache;
 }
