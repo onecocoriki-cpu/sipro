@@ -49,8 +49,12 @@
       <div class="lbl">Siap Diproses</div>
     </div>
     <div class="stat-card process">
-      <div class="num" id="cnt-process">0</div>
-      <div class="lbl">Diproses</div>
+      <div class="num" id="cnt-purchased">0</div>
+      <div class="lbl">Sudah Dibeli</div>
+    </div>
+    <div class="stat-card done">
+      <div class="num" id="cnt-shipped">0</div>
+      <div class="lbl">Dikirim</div>
     </div>
     <div class="stat-card done">
       <div class="num" id="cnt-done">0</div>
@@ -66,6 +70,7 @@
   <div class="tabs">
     <button class="tab purple active" onclick="setFilter('ready', this)">Siap Diproses</button>
     <button class="tab purple" onclick="setFilter('purchased', this)">Sudah Dibeli</button>
+    <button class="tab purple" onclick="setFilter('shipped', this)">Dikirim</button>
     <button class="tab purple" onclick="setFilter('received', this)">Diterima Gudang</button>
     <button class="tab purple" onclick="setFilter('all', this)">Semua</button>
   </div>
@@ -75,9 +80,9 @@
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/></svg>
       <input type="text" id="search-input" placeholder="Cari no. permintaan, barang, pemohon..." oninput="renderTable()"/>
     </div>
-    <button class="btn-sheets" id="btn-sync-all" onclick="syncAllToSheets()">
+    <button class="btn-sheets" id="btn-sync-all" onclick="manualSyncAll()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-      Sync ke Google Sheets
+      Sync Manual ke Sheets
     </button>
   </div>
 
@@ -194,11 +199,6 @@
 <script src="shared-utils.js"></script>
 <script>
 
-// ============================================================
-//  GANTI INI dengan URL Google Apps Script Anda
-// ============================================================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDlM0cahfMYYVpSN9EyiU1yOiT5QZF50Nq8Eo9IZRicAVgnGD_70yxUBUFEvACUvG36Q/exec';
-
 let currentUser  = null;
 let allDocs      = [];
 let activeFilter = 'ready';
@@ -207,7 +207,7 @@ let snapshotUnsub = null;
 
 auth.onAuthStateChanged(async user => {
   if (!user) { window.location.href = 'index.html'; return; }
-  await ensureUserDoc(); // ← Auto-create users/{uid} jika belum ada
+  await ensureUserDoc();
   currentUser = await getCurrentUserInfo();
   if (!currentUser || currentUser.role !== 'pembelian') {
     window.location.href = 'index.html'; return;
@@ -238,10 +238,12 @@ function loadData() {
 }
 
 function updateStats() {
-  document.getElementById('cnt-ready').textContent   = allDocs.filter(d => d.status === 'Approved2').length;
-  document.getElementById('cnt-process').textContent = allDocs.filter(d => d.status === 'Purchased').length;
-  document.getElementById('cnt-done').textContent    = allDocs.filter(d => d.status === 'Received').length;
-  document.getElementById('cnt-synced').textContent  = allDocs.filter(d => d.syncedToSheets).length;
+  const purchased = allDocs.filter(d => d.status === 'Purchased');
+  document.getElementById('cnt-ready').textContent     = allDocs.filter(d => d.status === 'Approved2').length;
+  document.getElementById('cnt-purchased').textContent   = purchased.filter(d => !d.pengiriman).length;
+  document.getElementById('cnt-shipped').textContent    = purchased.filter(d => d.pengiriman).length;
+  document.getElementById('cnt-done').textContent       = allDocs.filter(d => d.status === 'Received').length;
+  document.getElementById('cnt-synced').textContent     = allDocs.filter(d => d.syncedToSheets).length;
 }
 
 function setFilter(f, btn) {
@@ -256,7 +258,8 @@ function getFiltered() {
   return allDocs.filter(d => {
     const statusOk = {
       ready:     d.status === 'Approved2',
-      purchased: d.status === 'Purchased',
+      purchased: d.status === 'Purchased' && !d.pengiriman,
+      shipped:   d.status === 'Purchased' && d.pengiriman,
       received:  d.status === 'Received',
       all:       ['Approved2','Purchased','Received'].includes(d.status),
     }[activeFilter] ?? false;
@@ -282,13 +285,20 @@ function renderTable() {
   tbody.innerHTML = docs.map(d => {
     const tgl = d.approvalManager?.waktu?.toDate ? formatTgl(d.approvalManager.waktu.toDate()) : '—';
     let aksi = '';
-    if (d.status === 'Approved2')  aksi = `<button class="btn-proses" onclick="openModal('${d.id}','beli')">Proses Beli</button>`;
-    else if (d.status === 'Purchased') aksi = `<button class="btn-terima" onclick="openModal('${d.id}','kirim')">Konfirmasi Kirim</button>`;
-    else aksi = `<button class="btn-detail" onclick="openModal('${d.id}','detail')">Detail</button>`;
+    if (d.status === 'Approved2') {
+      aksi = `<button class="btn-proses" onclick="openModal('${d.id}','beli')">Proses Beli</button>`;
+    } else if (d.status === 'Purchased' && !d.pengiriman) {
+      aksi = `<button class="btn-terima" onclick="openModal('${d.id}','kirim')">Konfirmasi Kirim</button>`;
+    } else {
+      aksi = `<button class="btn-detail" onclick="openModal('${d.id}','detail')">Detail</button>`;
+    }
 
     const syncBadge = d.syncedToSheets
       ? `<span class="badge badge-synced">✓ Synced</span>`
       : `<span class="badge badge-unsynced">Belum</span>`;
+
+    // FIX: Badge status yang benar untuk status Purchased
+    const statusBadge = getStatusBadge(d.status, d.pengiriman);
 
     return `<tr>
       <td><b style="font-size:.82rem">${escapeHtml(d.noPerm)}</b></td>
@@ -298,11 +308,19 @@ function renderTable() {
       <td><div style="font-weight:600;font-size:.86rem">${escapeHtml(d.namaBarang)}</div><div style="font-size:.78rem;color:var(--muted)">${escapeHtml(d.keperluan)}</div></td>
       <td style="font-size:.86rem;white-space:nowrap">${d.jumlah} ${d.satuan}</td>
       <td class="pr-${d.prioritas?.toLowerCase()}">${d.prioritas}</td>
-      <td>${badgeStatus(d.status)}</td>
+      <td>${statusBadge}</td>
       <td>${syncBadge}</td>
       <td>${aksi}</td>
     </tr>`;
   }).join('');
+}
+
+// FIX: Helper untuk badge status yang benar
+function getStatusBadge(status, pengiriman) {
+  if (status === 'Purchased' && pengiriman) {
+    return `<span class="badge badge-shipped">Dikirim</span>`;
+  }
+  return badgeStatus(status);
 }
 
 // ── Modal ──
@@ -317,6 +335,9 @@ function openModal(id, mode) {
 
   if (mode === 'beli')   { document.getElementById('tgl-beli').valueAsDate = new Date(); hitungTotal(); }
   if (mode === 'kirim')  { document.getElementById('tgl-kirim').valueAsDate = new Date(); }
+
+  // FIX: Badge status di detail grid juga menggunakan helper yang benar
+  const detailStatusBadge = getStatusBadge(d.status, d.pengiriman);
 
   document.getElementById('detail-grid').innerHTML = `
     <div class="detail-item"><span class="lbl">No. Permintaan</span><span class="val">${escapeHtml(d.noPerm)}</span></div>
@@ -333,7 +354,7 @@ function openModal(id, mode) {
     <div class="detail-item"><span class="lbl">Harga Satuan</span><span class="val">${formatRp(d.pembelian.hargaSatuan)}</span></div>
     <div class="detail-item"><span class="lbl">Total Harga</span><span class="val" style="font-weight:700;color:var(--purple)">${formatRp(d.pembelian.totalHarga)}</span></div>
     ` : ''}
-    <div class="detail-item full"><span class="lbl">Status</span><span class="val">${badgeStatus(d.status)}</span></div>
+    <div class="detail-item full"><span class="lbl">Status</span><span class="val">${detailStatusBadge}</span></div>
   `;
 
   renderHistory(d);
@@ -372,7 +393,7 @@ function hitungTotal() {
   document.getElementById('total-harga').value = harga * jml;
 }
 
-// ── Simpan Pembelian ──
+// ── Simpan Pembelian + Auto Sync ──
 async function simpanPembelian() {
   const supplier    = document.getElementById('supplier').value.trim();
   const noPO        = document.getElementById('no-po').value.trim();
@@ -404,17 +425,22 @@ async function simpanPembelian() {
     });
     showToast('✓ Data pembelian tersimpan!', 'success');
     closeModal();
-    setTimeout(() => syncSingleToSheets(docId), 1000);
+
+    // FIX: Auto-sync ke Sheets setelah update berhasil
+    await autoSyncAfterUpdate(docId);
+
   } catch (e) { console.error(e); showToast('Gagal menyimpan. Coba lagi.', 'error'); }
 
   setBtnLoading('btn-simpan-beli', false, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Sudah Dibeli');
 }
 
-// ── Simpan Pengiriman ──
+// ── Simpan Pengiriman + Auto Sync ──
 async function simpanPengiriman() {
   const tglKirim = document.getElementById('tgl-kirim').value;
 
   if (!tglKirim) { showToast('Tanggal dikirim wajib diisi.', 'error'); return; }
+
+  const docId = selectedDoc.id;
 
   setBtnLoading('btn-simpan-kirim', true, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Dikirim ke Gudang');
 
@@ -431,95 +457,60 @@ async function simpanPengiriman() {
       }
     });
     showToast('✓ Barang dikonfirmasi dikirim ke gudang!', 'success');
-    const docId = selectedDoc.id;
     closeModal();
-    setTimeout(() => syncSingleToSheets(docId), 1000);
+
+    // FIX: Auto-sync ke Sheets setelah update berhasil
+    await autoSyncAfterUpdate(docId);
+
   } catch (e) { console.error(e); showToast('Gagal menyimpan. Coba lagi.', 'error'); }
 
   setBtnLoading('btn-simpan-kirim', false, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Dikirim ke Gudang');
 }
 
-// ── Sync ke Google Sheets ──
-// Google Apps Script tidak mengirim header CORS pada preflight OPTIONS,
-// sehingga fetch biasa selalu diblok browser. Solusi: gunakan mode: 'no-cors'
-// langsung. Response akan "opaque" (tidak bisa dibaca), tapi request tetap
-// terkirim ke Apps Script dan data masuk ke Sheets.
-// Content-Type harus 'text/plain' agar request dianggap "simple" (no preflight).
-async function syncSingleToSheets(docId) {
-  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('GANTI') || APPS_SCRIPT_URL === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') return;
-  const doc = allDocs.find(d => d.id === docId);
-  if (!doc) return;
-
-  try {
-    await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' }, // simple header — tidak picu preflight
-      body: JSON.stringify(buildSheetRow(doc)),
-    });
-    // Dengan no-cors kita tidak bisa baca response, asumsikan sukses jika tidak throw
-    await db.collection('permintaan').doc(docId).update({ syncedToSheets: true });
-    console.log('Sync terkirim (no-cors):', doc.noPerm);
-  } catch (e) {
-    console.error('Sync error:', e);
-    // Tidak update syncedToSheets agar bisa dicoba ulang via tombol Sync All
-  }
-}
-
-async function syncAllToSheets() {
+// FIX: Helper auto-sync setelah update berhasil
+async function autoSyncAfterUpdate(docId) {
   if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('GANTI') || APPS_SCRIPT_URL === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
-    showToast('URL Apps Script belum diisi.', 'error'); return;
+    console.warn('[AutoSync] APPS_SCRIPT_URL belum diisi, skip sync');
+    return;
   }
-  const btn = document.getElementById('btn-sync-all');
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spinner"></div> Menyinkronkan...';
 
-  const toSync = allDocs.filter(d => !d.syncedToSheets && ['Purchased','Received'].includes(d.status));
-  let ok = 0;
-  for (const doc of toSync) {
+  // Tunggu sebentar agar snapshot listener update allDocs
+  setTimeout(async () => {
+    const doc = allDocs.find(d => d.id === docId);
+    if (!doc) {
+      console.warn('[AutoSync] Dokumen tidak ditemukan di cache');
+      return;
+    }
+    if (doc.syncedToSheets) {
+      console.log('[AutoSync] Dokumen sudah tersync, skip');
+      return;
+    }
+
+    console.log('[AutoSync] Memulai sync untuk:', doc.noPerm);
     try {
       await fetch(APPS_SCRIPT_URL, {
-        method: 'POST', mode: 'no-cors',
+        method: 'POST',
+        mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(buildSheetRow(doc)),
       });
-      await db.collection('permintaan').doc(doc.id).update({ syncedToSheets: true });
-      ok++;
-    } catch (e) { console.error(e); }
-  }
-  showToast(ok > 0 ? `✓ ${ok} data berhasil disync ke Sheets!` : 'Semua data sudah tersync.', 'success');
-  btn.disabled = false;
-  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Sync ke Google Sheets';
+      await db.collection('permintaan').doc(docId).update({ syncedToSheets: true });
+      console.log('[AutoSync] ✓ Sync sukses:', doc.noPerm);
+      showToast('✓ Data tersync ke Google Sheets', 'success');
+    } catch (e) {
+      console.error('[AutoSync] ✗ Gagal sync:', e);
+    }
+  }, 1500);
 }
 
-function buildSheetRow(d) {
-  return {
-    noPerm:         d.noPerm,
-    tanggalInput:   d.tanggalInput?.toDate ? formatTgl(d.tanggalInput.toDate()) : '',
-    lokasi:         d.lokasi,
-    requester:      d.requester,
-    petugasInput:   d.petugasInput,
-    namaBarang:     d.namaBarang,
-    jumlah:         d.jumlah,
-    satuan:         d.satuan,
-    keperluan:      d.keperluan,
-    keterangan:     d.keterangan,
-    prioritas:      d.prioritas,
-    statusAkhir:    d.status,
-    approvedKepGudang: d.approvalKepGudang?.nama || '',
-    approvedManager:   d.approvalManager?.nama   || '',
-    supplier:       d.pembelian?.supplier   || '',
-    noPO:           d.pembelian?.noPO       || '',
-    hargaSatuan:    d.pembelian?.hargaSatuan || 0,
-    totalHarga:     d.pembelian?.totalHarga  || 0,
-    tglBeli:        d.pembelian?.tglBeli     || '',
-    tglKirim:       d.pengiriman?.tglKirim   || '',
-    catatanKirim:   d.pengiriman?.catatanKirim || '',
-    jmlDiterima:    d.penerimaan?.jumlahDiterima || '',
-    tglTerima:      d.penerimaan?.tglTerima      || '',
-    kondisi:        d.penerimaan?.kondisi         || '',
-    penerima:       d.penerimaan?.penerima        || '',
-  };
+// ── Manual Sync ──
+async function manualSyncAll() {
+  const btn = document.getElementById('btn-sync-all');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Menyinkronkan...';
+  await syncAllToSheets(allDocs);
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Sync Manual ke Sheets';
 }
 
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); selectedDoc = null; }

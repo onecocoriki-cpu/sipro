@@ -353,7 +353,7 @@ let selectedDoc = null;
 // ── Init ──
 auth.onAuthStateChanged(async user => {
   if (!user) { window.location.href = 'index.html'; return; }
-  await ensureUserDoc(); // ← Auto-create users/{uid} jika belum ada
+  await ensureUserDoc();
   currentUser = await getCurrentUserInfo();
   if (!currentUser || !['gudang'].includes(currentUser.role)) {
     window.location.href = 'index.html'; return;
@@ -544,7 +544,6 @@ function loadBarangDibeli() {
     .orderBy('tanggalInput', 'desc')
     .limit(50)
     .onSnapshot(snap => {
-      // Filter: tampilkan yang sudah dibeli (Purchased) dan sudah dikirim (ada pengiriman) ATAU sudah diterima (Received)
       const docs = snap.docs.filter(doc => {
         const d = doc.data();
         return (d.status === 'Purchased' && d.pengiriman) || d.status === 'Received';
@@ -562,7 +561,6 @@ function loadBarangDibeli() {
         const tgl = d.approvalManager?.waktu?.toDate ? formatTgl(d.approvalManager.waktu.toDate()) : '—';
         const totalHarga = d.pembelian?.totalHarga ? formatRp(d.pembelian.totalHarga) : '—';
 
-        // Status badge
         let statusBadge;
         let aksi;
         if (d.status === 'Received') {
@@ -647,6 +645,7 @@ async function simpanPenerimaan() {
     showToast('Lengkapi semua field wajib.', 'error'); return;
   }
 
+  const docId = selectedDoc.id;
   const btn = document.getElementById('btn-simpan-terima');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Menyimpan...';
@@ -669,6 +668,10 @@ async function simpanPenerimaan() {
     });
     showToast('✓ Barang berhasil diterima!', 'success');
     closeModal();
+
+    // FIX: Auto-sync ke Sheets setelah penerimaan berhasil
+    await autoSyncAfterUpdate(docId);
+
   } catch (e) {
     console.error(e);
     showToast('Gagal menyimpan. ' + (e.message || 'Coba lagi.'), 'error');
@@ -676,6 +679,43 @@ async function simpanPenerimaan() {
 
   btn.disabled = false;
   btn.innerHTML = '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Diterima';
+}
+
+// FIX: Helper auto-sync setelah update berhasil
+async function autoSyncAfterUpdate(docId) {
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('GANTI') || APPS_SCRIPT_URL === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
+    console.warn('[AutoSync] APPS_SCRIPT_URL belum diisi, skip sync');
+    return;
+  }
+
+  // Tunggu sebentar agar snapshot listener update cache
+  setTimeout(async () => {
+    try {
+      const docSnap = await db.collection('permintaan').doc(docId).get();
+      if (!docSnap.exists) {
+        console.warn('[AutoSync] Dokumen tidak ditemukan');
+        return;
+      }
+      const doc = { id: docSnap.id, ...docSnap.data() };
+      if (doc.syncedToSheets) {
+        console.log('[AutoSync] Dokumen sudah tersync, skip');
+        return;
+      }
+
+      console.log('[AutoSync] Memulai sync untuk:', doc.noPerm);
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(buildSheetRow(doc)),
+      });
+      await db.collection('permintaan').doc(docId).update({ syncedToSheets: true });
+      console.log('[AutoSync] ✓ Sync sukses:', doc.noPerm);
+      showToast('✓ Data tersync ke Google Sheets', 'success');
+    } catch (e) {
+      console.error('[AutoSync] ✗ Gagal sync:', e);
+    }
+  }, 1500);
 }
 
 // ── Loading helpers ──
