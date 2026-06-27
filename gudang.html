@@ -346,11 +346,6 @@
 <script>
 
 let currentUser = null;
-
-// ── LOCAL FALLBACK: APPS_SCRIPT_URL ──
-// Pastikan selalu tersedia meskipun firebase-config.js bermasalah
-const APPS_SCRIPT_URL = (typeof window !== 'undefined' && window.APPS_SCRIPT_URL) 
-  || 'https://script.google.com/macros/s/AKfycbwDlM0cahfMYYVpSN9EyiU1yOiT5QZF50Nq8Eo9IZRicAVgnGD_70yxUBUFEvACUvG36Q/exec';
 let riwayatUnsub = null;
 let barangDibeliUnsub = null;
 let selectedDoc = null;
@@ -688,9 +683,7 @@ async function simpanPenerimaan() {
 
 // FIX: Helper auto-sync setelah update berhasil
 async function autoSyncAfterUpdate(docId) {
-  const url = (typeof APPS_SCRIPT_URL !== 'undefined' && APPS_SCRIPT_URL) 
-    || (typeof window !== 'undefined' && window.APPS_SCRIPT_URL) 
-    || '';
+  const url = (typeof window !== 'undefined' && window.APPS_SCRIPT_URL) || '';
   if (!url || url.includes('GANTI') || url === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
     console.warn('[AutoSync] APPS_SCRIPT_URL belum diisi, skip sync');
     return;

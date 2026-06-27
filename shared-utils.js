@@ -153,15 +153,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // langsung. Response akan "opaque" (tidak bisa dibaca), tapi request tetap
 // terkirim ke Apps Script dan data masuk ke Sheets.
 // Content-Type harus 'text/plain' agar request dianggap "simple" (no preflight).
-// Guard: pastikan APPS_SCRIPT_URL tersedia
-function getAppsScriptUrl() {
-  return (typeof APPS_SCRIPT_URL !== 'undefined' && APPS_SCRIPT_URL) 
-    || (typeof window !== 'undefined' && window.APPS_SCRIPT_URL) 
-    || '';
-}
-
 async function syncSingleToSheets(doc) {
-  const url = getAppsScriptUrl();
+  const url = (typeof window !== 'undefined' && window.APPS_SCRIPT_URL) || '';
   if (!url || url.includes('GANTI') || url === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
     console.warn('[syncSingleToSheets] APPS_SCRIPT_URL belum diisi');
     return;
@@ -184,7 +177,7 @@ async function syncSingleToSheets(doc) {
 }
 
 async function syncAllToSheets(docs) {
-  const url = getAppsScriptUrl();
+  const url = (typeof window !== 'undefined' && window.APPS_SCRIPT_URL) || '';
   if (!url || url.includes('GANTI') || url === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
     console.warn('[syncAllToSheets] APPS_SCRIPT_URL belum diisi');
     return;
