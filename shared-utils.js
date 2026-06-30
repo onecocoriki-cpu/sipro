@@ -28,6 +28,7 @@ function badgeStatus(s) {
     'Approved2': ['badge-approved2', 'Siap Dibeli'],
     'Rejected':  ['badge-rejected',  'Ditolak'],
     'Purchased': ['badge-purchased', 'Sudah Dibeli'],
+    'Partial':   ['badge-partial',   'Dibeli Sebagian'],
     'Received':  ['badge-received',  'Diterima Gudang'],
   };
   const [cls, lbl] = map[s] || ['badge-pending', s];

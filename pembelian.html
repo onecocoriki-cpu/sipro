@@ -77,6 +77,7 @@
     <button class="tab purple active" onclick="setFilter('ready', this)">Siap Diproses</button>
     <button class="tab purple" onclick="setFilter('purchased', this)">Sudah Dibeli</button>
     <button class="tab purple" onclick="setFilter('shipped', this)">Dikirim</button>
+    <button class="tab purple" onclick="setFilter('partial', this)">Partial</button>
     <button class="tab purple" onclick="setFilter('received', this)">Diterima Gudang</button>
     <button class="tab purple" onclick="setFilter('all', this)">Semua</button>
   </div>
@@ -142,6 +143,38 @@
       <!-- Form Pembelian -->
       <div class="section-box" id="form-beli" style="display:none">
         <h4>📦 Input Data Pembelian</h4>
+
+        <!-- Partial / Complete Options -->
+        <div class="partial-option-group">
+          <label class="partial-option selected" id="opt-complete" onclick="selectPartialOption('complete')">
+            <input type="radio" name="beli-mode" value="complete" checked/>
+            <div class="icon">✅</div>
+            <div class="title">Complete</div>
+            <div class="desc">Beli semua barang</div>
+          </label>
+          <label class="partial-option" id="opt-partial" onclick="selectPartialOption('partial')">
+            <input type="radio" name="beli-mode" value="partial"/>
+            <div class="icon">📦</div>
+            <div class="title">Partial</div>
+            <div class="desc">Beli sebagian saja</div>
+          </label>
+        </div>
+
+        <div class="partial-qty-field" id="partial-qty-group">
+          <div class="field">
+            <label for="partial-qty">Jumlah yang Dibeli <span class="req">*</span></label>
+            <input type="number" id="partial-qty" placeholder="0" min="1" oninput="hitungPartial()"/>
+            <div class="partial-info">
+              Jumlah diminta: <b id="partial-requested">0</b> — 
+              Sisa: <b id="partial-sisa">0</b>
+            </div>
+          </div>
+          <div class="field full">
+            <label for="partial-catatan">Alasan Partial</label>
+            <textarea id="partial-catatan" placeholder="Contoh: Uang tidak cukup, supplier kehabisan stok, dsb..."></textarea>
+          </div>
+        </div>
+
         <div class="form-grid-2">
           <div class="field">
             <label for="supplier">Nama Supplier <span class="req">*</span></label>
@@ -257,8 +290,8 @@ function loadData() {
 function updateStats() {
   const purchased = allDocs.filter(d => d.status === 'Purchased');
   document.getElementById('cnt-ready').textContent     = allDocs.filter(d => d.status === 'Approved2').length;
-  document.getElementById('cnt-purchased').textContent   = purchased.filter(d => !d.pengiriman).length;
-  document.getElementById('cnt-shipped').textContent    = purchased.filter(d => d.pengiriman).length;
+  document.getElementById('cnt-purchased').textContent   = purchased.filter(d => !d.pengiriman && !d.isPartial).length;
+  document.getElementById('cnt-shipped').textContent    = purchased.filter(d => d.pengiriman && !d.isPartial).length;
   document.getElementById('cnt-done').textContent       = allDocs.filter(d => d.status === 'Received').length;
   document.getElementById('cnt-synced').textContent     = allDocs.filter(d => d.syncedToSheets).length;
 }
@@ -275,10 +308,11 @@ function getFiltered() {
   let filtered = allDocs.filter(d => {
     const statusOk = {
       ready:     d.status === 'Approved2',
-      purchased: d.status === 'Purchased' && !d.pengiriman,
-      shipped:   d.status === 'Purchased' && d.pengiriman,
+      purchased: d.status === 'Purchased' && !d.pengiriman && !d.isPartial,
+      shipped:   d.status === 'Purchased' && d.pengiriman && !d.isPartial,
+      partial:   d.status === 'Partial' || (d.isPartial && d.status === 'Purchased'),
       received:  d.status === 'Received',
-      all:       ['Approved2','Purchased','Received'].includes(d.status),
+      all:       ['Approved2','Purchased','Received','Partial'].includes(d.status),
     }[activeFilter] ?? false;
     return statusOk;
   });
@@ -286,7 +320,10 @@ function getFiltered() {
 }
 
 // FIX: Helper untuk badge status yang benar
-function getStatusBadge(status, pengiriman) {
+function getStatusBadge(status, pengiriman, isPartial) {
+  if (isPartial || status === 'Partial') {
+    return `<span class="badge badge-partial">Dibeli Sebagian</span>`;
+  }
   if (status === 'Purchased' && pengiriman) {
     return `<span class="badge badge-shipped">Dikirim</span>`;
   }
@@ -318,8 +355,10 @@ function renderTable() {
     let aksi = '';
     if (d.status === 'Approved2') {
       aksi = `<button class="btn-proses" onclick="openModal('${d.id}','beli')">Proses Beli</button>`;
-    } else if (d.status === 'Purchased' && !d.pengiriman) {
+    } else if (d.status === 'Purchased' && !d.pengiriman && !d.isPartial) {
       aksi = `<button class="btn-terima" onclick="openModal('${d.id}','kirim')">Konfirmasi Kirim</button>`;
+    } else if (d.isPartial && d.status === 'Purchased' && !d.pengiriman) {
+      aksi = `<button class="btn-terima" onclick="openModal('${d.id}','kirim')">Kirim Partial</button>`;
     } else {
       aksi = `<button class="btn-detail" onclick="openModal('${d.id}','detail')">Detail</button>`;
     }
@@ -329,8 +368,13 @@ function renderTable() {
       ? `<span class="badge badge-synced">✓ Synced</span>`
       : `<span class="badge badge-unsynced">Belum</span>`;
 
-    const statusBadge = getStatusBadge(d.status, d.pengiriman);
+    const statusBadge = getStatusBadge(d.status, d.pengiriman, d.isPartial);
     const typeBadge = getTypeBadge(d.type || 'request');
+
+    // Jumlah display: untuk partial, tampilkan jumlah yang dibeli / jumlah diminta
+    const jmlDisplay = d.isPartial && d.pembelian?.partialQty
+      ? `<span style="color:var(--purple);font-weight:700">${d.pembelian.partialQty}</span> / ${d.jumlah} ${d.satuan}`
+      : `${d.jumlah} ${d.satuan}`;
 
     return `<tr>
       <td><b style="font-size:.82rem">${escapeHtml(d.noPerm)}</b></td>
@@ -339,7 +383,7 @@ function renderTable() {
       <td style="font-size:.82rem">${escapeHtml(d.lokasi?.split('—')[0]?.trim() || d.lokasi)}</td>
       <td><div style="font-weight:600;font-size:.86rem">${escapeHtml(d.requester)}</div><div style="font-size:.78rem;color:var(--muted)">${escapeHtml(d.petugasInput)}</div></td>
       <td><div style="font-weight:600;font-size:.86rem">${escapeHtml(d.namaBarang)}</div><div style="font-size:.78rem;color:var(--muted)">${escapeHtml(d.keperluan)}</div></td>
-      <td style="font-size:.86rem;white-space:nowrap">${d.jumlah} ${d.satuan}</td>
+      <td style="font-size:.86rem;white-space:nowrap">${jmlDisplay}</td>
       <td class="pr-${d.prioritas?.toLowerCase()}">${d.prioritas}</td>
       <td>${statusBadge}</td>
       <td>${syncBadge}</td>
@@ -367,11 +411,34 @@ function openModal(id, mode) {
   document.getElementById('form-beli').style.display   = mode === 'beli'   ? '' : 'none';
   document.getElementById('form-kirim').style.display = mode === 'kirim' ? '' : 'none';
 
-  if (mode === 'beli')   { document.getElementById('tgl-beli').valueAsDate = new Date(); hitungTotal(); }
+  if (mode === 'beli') {
+    document.getElementById('tgl-beli').valueAsDate = new Date();
+    hitungTotal();
+    // Reset partial options
+    selectPartialOption('complete');
+    document.getElementById('partial-requested').textContent = d.jumlah;
+    document.getElementById('partial-sisa').textContent = 0;
+    document.getElementById('partial-qty').value = '';
+    document.getElementById('partial-catatan').value = '';
+  }
   if (mode === 'kirim')  { document.getElementById('tgl-kirim').valueAsDate = new Date(); }
 
-  const detailStatusBadge = getStatusBadge(d.status, d.pengiriman);
+  const detailStatusBadge = getStatusBadge(d.status, d.pengiriman, d.isPartial);
   const typeBadge = getTypeBadge(d.type || 'request');
+
+  // Partial history in detail
+  let partialHtml = '';
+  if (d.isPartial && d.parentNoPerm) {
+    partialHtml = `
+    <div class="detail-item full"><span class="lbl">Asal Permintaan</span><span class="val">Partial dari <b>${escapeHtml(d.parentNoPerm)}</b></span></div>
+    `;
+  }
+  if (d.pembelian?.partialQty) {
+    partialHtml += `
+    <div class="detail-item"><span class="lbl">Jumlah Dibeli</span><span class="val" style="color:var(--purple);font-weight:700">${d.pembelian.partialQty} / ${d.jumlah} ${d.satuan}</span></div>
+    <div class="detail-item full"><span class="lbl">Alasan Partial</span><span class="val">${escapeHtml(d.pembelian.partialCatatan) || '—'}</span></div>
+    `;
+  }
 
   document.getElementById('detail-grid').innerHTML = `
     <div class="detail-item"><span class="lbl">No. Permintaan</span><span class="val">${escapeHtml(d.noPerm)}</span></div>
@@ -383,6 +450,7 @@ function openModal(id, mode) {
     <div class="detail-item"><span class="lbl">Jumlah</span><span class="val">${d.jumlah} ${d.satuan}</span></div>
     <div class="detail-item"><span class="lbl">Kebutuhan</span><span class="val">${escapeHtml(d.keperluan)}</span></div>
     <div class="detail-item full"><span class="lbl">Keterangan</span><span class="val">${escapeHtml(d.keterangan) || '—'}</span></div>
+    ${partialHtml}
     ${d.pembelian ? `
     <div class="detail-item"><span class="lbl">Supplier</span><span class="val">${escapeHtml(d.pembelian.supplier)}</span></div>
     <div class="detail-item"><span class="lbl">No. PO</span><span class="val">${escapeHtml(d.pembelian.noPO) || '—'}</span></div>
@@ -408,7 +476,7 @@ function renderHistory(d) {
     logs.push({ dot: ok ? 'green' : 'red', text: `<strong>Manager (${escapeHtml(d.approvalManager.nama)})</strong> ${ok ? 'menyetujui' : 'menolak'}${d.approvalManager.catatan ? ' — "' + escapeHtml(d.approvalManager.catatan) + '"' : ''}` });
   }
   if (d.pembelian) {
-    logs.push({ dot: 'purple', text: `<strong>Pembelian (${escapeHtml(d.pembelian.oleh)})</strong> memproses pembelian` });
+    logs.push({ dot: 'purple', text: `<strong>Pembelian (${escapeHtml(d.pembelian.oleh)})</strong> memproses pembelian ${d.pembelian.partialQty ? '(partial: ' + d.pembelian.partialQty + ' ' + d.satuan + ')' : ''}` });
   }
   if (d.pengiriman) {
     logs.push({ dot: 'blue', text: `<strong>Pembelian (${escapeHtml(d.pengiriman.oleh)})</strong> mengirim barang ke gudang pada ${formatTgl(new Date(d.pengiriman.tglKirim))}` });
@@ -422,46 +490,127 @@ function renderHistory(d) {
     : '';
 }
 
+// ── Partial Options ──
+function selectPartialOption(mode) {
+  document.getElementById('opt-complete').classList.toggle('selected', mode === 'complete');
+  document.getElementById('opt-partial').classList.toggle('selected', mode === 'partial');
+  document.querySelector('input[name="beli-mode"][value="' + mode + '"]').checked = true;
+  document.getElementById('partial-qty-group').classList.toggle('show', mode === 'partial');
+  if (mode === 'complete') {
+    document.getElementById('partial-qty').value = '';
+    document.getElementById('partial-sisa').textContent = 0;
+  }
+}
+
+function hitungPartial() {
+  const qty = parseInt(document.getElementById('partial-qty').value) || 0;
+  const requested = selectedDoc?.jumlah || 0;
+  const sisa = Math.max(0, requested - qty);
+  document.getElementById('partial-sisa').textContent = sisa;
+  hitungTotal();
+}
+
 function hitungTotal() {
   const harga = parseFloat(document.getElementById('harga-satuan').value) || 0;
-  const jml   = selectedDoc?.jumlah || 0;
+  const isPartial = document.querySelector('input[name="beli-mode"]:checked')?.value === 'partial';
+  const jml = isPartial
+    ? (parseInt(document.getElementById('partial-qty').value) || 0)
+    : (selectedDoc?.jumlah || 0);
   document.getElementById('total-harga').value = harga * jml;
 }
 
-// ── Simpan Pembelian + Auto Sync ──
+// ── Simpan Pembelian + Partial + Auto Sync ──
 async function simpanPembelian() {
   const supplier    = document.getElementById('supplier').value.trim();
   const noPO        = document.getElementById('no-po').value.trim();
   const hargaSatuan = parseFloat(document.getElementById('harga-satuan').value) || 0;
   const tglBeli     = document.getElementById('tgl-beli').value;
+  const isPartial   = document.querySelector('input[name="beli-mode"]:checked')?.value === 'partial';
+  const partialQty  = isPartial ? (parseInt(document.getElementById('partial-qty').value) || 0) : 0;
+  const partialCatatan = isPartial ? escapeHtml(document.getElementById('partial-catatan').value.trim()) : '';
 
   if (!supplier || !hargaSatuan || !tglBeli) { showToast('Lengkapi semua field wajib.', 'error'); return; }
 
+  if (isPartial) {
+    if (!partialQty || partialQty < 1) { showToast('Jumlah yang dibeli wajib diisi.', 'error'); return; }
+    if (partialQty >= selectedDoc.jumlah) { showToast('Jumlah partial harus lebih kecil dari jumlah diminta.', 'error'); return; }
+  }
+
   const docId = selectedDoc.id;
+  const jmlBeli = isPartial ? partialQty : selectedDoc.jumlah;
 
   setBtnLoading('btn-simpan-beli', true, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Sudah Dibeli');
 
   try {
-    await db.collection('permintaan').doc(selectedDoc.id).update({
-      status:      'Purchased',
-      statusLabel: 'Sudah Dibeli — Menunggu Dikirim ke Gudang',
+    // Update permintaan asli
+    const updateData = {
+      status:      isPartial ? 'Partial' : 'Purchased',
+      statusLabel: isPartial ? 'Partial — Barang Dibeli Sebagian' : 'Sudah Dibeli — Menunggu Dikirim ke Gudang',
       syncedToSheets: false,
+      isPartial: isPartial,
       pembelian: {
         supplier,
         noPO: noPO || '',
         hargaSatuan,
-        totalHarga:  hargaSatuan * selectedDoc.jumlah,
+        totalHarga:  hargaSatuan * jmlBeli,
         tglBeli,
         catatanBeli:  escapeHtml(document.getElementById('catatan-beli').value.trim()),
         oleh:         currentUser.nama,
         olehEmail:    currentUser.email,
         waktu:        firebase.firestore.FieldValue.serverTimestamp(),
       }
-    });
-    showToast('✓ Data pembelian tersimpan!', 'success');
+    };
+
+    if (isPartial) {
+      updateData.pembelian.partialQty = partialQty;
+      updateData.pembelian.partialCatatan = partialCatatan;
+    }
+
+    await db.collection('permintaan').doc(selectedDoc.id).update(updateData);
+
+    // Kalau partial, buat permintaan baru untuk sisa
+    if (isPartial) {
+      const sisaQty = selectedDoc.jumlah - partialQty;
+      const noPermBaru = await generateNoPerm();
+
+      const sisaData = {
+        noPerm: noPermBaru,
+        type: selectedDoc.type || 'request',
+        projectName: selectedDoc.projectName || '',
+        lokasi: selectedDoc.lokasi,
+        requester: selectedDoc.requester,
+        namaBarang: selectedDoc.namaBarang,
+        jumlah: sisaQty,
+        satuan: selectedDoc.satuan,
+        keperluan: selectedDoc.keperluan + ' (Sisa dari ' + selectedDoc.noPerm + ')',
+        keterangan: selectedDoc.keterangan || '',
+        prioritas: selectedDoc.prioritas || 'Medium',
+        petugasInput: selectedDoc.petugasInput,
+        petugasEmail: selectedDoc.petugasEmail,
+        petugasUID: selectedDoc.petugasUID,
+        tanggalInput: firebase.firestore.FieldValue.serverTimestamp(),
+        status: 'Pending',
+        statusLabel: 'Menunggu Kepala Gudang (Sisa dari ' + selectedDoc.noPerm + ')',
+        parentNoPerm: selectedDoc.noPerm,
+        isPartialChild: true,
+        approvalKepGudang: null,
+        approvalManager: null,
+        catatanApproval: '',
+        syncedToSheets: false,
+      };
+
+      await db.collection('permintaan').doc(noPermBaru).set(sisaData);
+      showToast('✓ Partial berhasil! Sisa ' + sisaQty + ' ' + selectedDoc.satuan + ' dibuat permintaan baru: ' + noPermBaru, 'success');
+    } else {
+      showToast('✓ Data pembelian tersimpan!', 'success');
+    }
+
     closeModal();
     await autoSyncAfterUpdate(docId);
-  } catch (e) { console.error(e); showToast('Gagal menyimpan. Coba lagi.', 'error'); }
+  } catch (e) {
+    console.error(e);
+    showToast('Gagal menyimpan. ' + (e.message || 'Coba lagi.'), 'error');
+  }
 
   setBtnLoading('btn-simpan-beli', false, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Sudah Dibeli');
 }

@@ -761,12 +761,22 @@ function renderRiwayatTable(docs) {
     if (canBatal) {
       actions.push(`<button class="btn-batal" onclick="batalPermintaan('${escapeHtml(d.noPerm)}')">Batal</button>`);
     }
+    // Partial info
+    let jmlDisplay = d.jumlah + ' ' + d.satuan;
+    if (d.isPartial && d.pembelian?.partialQty) {
+      jmlDisplay = `<span style="color:var(--purple);font-weight:700">${d.pembelian.partialQty}</span> / ${d.jumlah} ${d.satuan}`;
+    }
+    // Parent info for sisa
+    let parentInfo = '';
+    if (d.isPartialChild && d.parentNoPerm) {
+      parentInfo = `<br><small style="color:var(--purple)">Sisa dari ${escapeHtml(d.parentNoPerm)}</small>`;
+    }
     return `<tr>
-      <td><b>${escapeHtml(d.noPerm)}</b></td>
+      <td><b>${escapeHtml(d.noPerm)}</b>${parentInfo}</td>
       <td>${typeBadge}</td>
       <td>${tgl}</td>
-      <td>${escapeHtml(d.namaBarang)}<br><small style="color:var(--muted)">${d.jumlah} ${d.satuan} · ${escapeHtml(d.keperluan)}</small></td>
-      <td>${d.jumlah} ${d.satuan}</td>
+      <td>${escapeHtml(d.namaBarang)}<br><small style="color:var(--muted)">${jmlDisplay} · ${escapeHtml(d.keperluan)}</small></td>
+      <td>${jmlDisplay}</td>
       <td class="pr-${d.prioritas?.toLowerCase()}">${d.prioritas}</td>
       <td>${badgeStatus(d.status)}</td>
       <td style="max-width:180px;font-size:.8rem;color:var(--muted)">${escapeHtml(d.catatanApproval) || '—'}</td>
@@ -785,7 +795,11 @@ function loadBarangDibeli() {
     .onSnapshot(snap => {
       allBarangDocs = snap.docs.filter(doc => {
         const d = doc.data();
-        return (d.status === 'Purchased' && d.pengiriman) || d.status === 'Received';
+        // Include: normal purchased + shipped, partial purchased + shipped, received
+        return (d.status === 'Purchased' && d.pengiriman) ||
+               (d.status === 'Partial' && d.pengiriman) ||
+               d.status === 'Received' ||
+               (d.isPartial && d.status === 'Purchased' && !d.pengiriman);
       }).map(d => ({ id: d.id, ...d.data() }));
       barangPage = 1;
       filterBarangDibeli();
@@ -832,15 +846,23 @@ function renderBarangTable(docs) {
     const totalHarga = d.pembelian?.totalHarga ? formatRp(d.pembelian.totalHarga) : '—';
     const typeBadge = getTypeBadge(d.type || 'request');
 
+    // Jumlah display for partial
+    const jmlDisplay = d.isPartial && d.pembelian?.partialQty
+      ? `<span style="color:var(--purple);font-weight:700">${d.pembelian.partialQty}</span> / ${d.jumlah} ${d.satuan}`
+      : `${d.jumlah} ${d.satuan}`;
+
     let statusBadge;
     let aksi;
     if (d.status === 'Received') {
       statusBadge = `<span class="badge badge-received">Selesai</span>`;
       aksi = `<button class="btn-print" onclick="openPrintPage('${escapeHtml(d.id)}')" title="Print">🖨️</button>`;
-    } else if (d.status === 'Purchased' && d.pengiriman) {
+    } else if (d.pengiriman) {
       statusBadge = `<span class="badge-dikirim">Dikirim</span>`;
       aksi = `<button class="btn-terima" onclick="openTerimaModal('${escapeHtml(doc.id)}')">Terima</button>
               <button class="btn-print" onclick="openPrintPage('${escapeHtml(d.id)}')" title="Print">🖨️</button>`;
+    } else if (d.isPartial) {
+      statusBadge = `<span class="badge badge-partial">Partial — Menunggu Kirim</span>`;
+      aksi = `<button class="btn-print" onclick="openPrintPage('${escapeHtml(d.id)}')" title="Print">🖨️</button>`;
     } else {
       statusBadge = `<span class="badge-menunggu">Menunggu</span>`;
       aksi = `<button class="btn-print" onclick="openPrintPage('${escapeHtml(d.id)}')" title="Print">🖨️</button>`;
@@ -850,8 +872,8 @@ function renderBarangTable(docs) {
       <td><b>${escapeHtml(d.noPerm)}</b></td>
       <td>${typeBadge}</td>
       <td>${tgl}</td>
-      <td><b>${escapeHtml(d.namaBarang)}</b><br><small style="color:var(--muted)">${d.jumlah} ${d.satuan}</small></td>
-      <td>${d.jumlah} ${d.satuan}</td>
+      <td><b>${escapeHtml(d.namaBarang)}</b><br><small style="color:var(--muted)">${jmlDisplay}</small></td>
+      <td>${jmlDisplay}</td>
       <td style="font-size:.82rem">${escapeHtml(d.pembelian?.supplier || '—')}</td>
       <td style="font-size:.82rem;white-space:nowrap">${totalHarga}</td>
       <td>${statusBadge}</td>
@@ -870,12 +892,15 @@ async function openTerimaModal(id) {
     selectedDoc = { id: doc.id, _ref: docRef, ...doc.data() };
     const d = selectedDoc;
 
+    // Jumlah diterima default: untuk partial, pakai partialQty
+    const jmlDefault = d.pembelian?.partialQty || d.jumlah;
+
     document.getElementById('modal-title').textContent = `Terima Barang — ${d.noPerm}`;
     document.getElementById('detail-grid').innerHTML = `
       <div class="detail-item"><span class="lbl">No. Permintaan</span><span class="val">${escapeHtml(d.noPerm)}</span></div>
       <div class="detail-item"><span class="lbl">Nama Barang</span><span class="val" style="font-size:1rem;font-weight:700">${escapeHtml(d.namaBarang)}</span></div>
       <div class="detail-item"><span class="lbl">Jenis</span><span class="val">${getTypeBadge(d.type || 'request')}</span></div>
-      <div class="detail-item"><span class="lbl">Jumlah Pesanan</span><span class="val">${d.jumlah} ${d.satuan}</span></div>
+      <div class="detail-item"><span class="lbl">Jumlah Pesanan</span><span class="val">${jmlDefault} ${d.satuan}${d.pembelian?.partialQty ? ' <small style="color:var(--purple)">(partial dari ' + d.jumlah + ')</small>' : ''}</span></div>
       <div class="detail-item"><span class="lbl">Supplier</span><span class="val">${escapeHtml(d.pembelian?.supplier || '—')}</span></div>
       <div class="detail-item"><span class="lbl">No. PO</span><span class="val">${escapeHtml(d.pembelian?.noPO || '—')}</span></div>
       <div class="detail-item"><span class="lbl">Total Harga</span><span class="val" style="font-weight:700;color:var(--purple)">${formatRp(d.pembelian?.totalHarga)}</span></div>
@@ -883,7 +908,7 @@ async function openTerimaModal(id) {
       <div class="detail-item full"><span class="lbl">Catatan Pengiriman</span><span class="val">${escapeHtml(d.pengiriman?.catatanKirim) || '—'}</span></div>
     `;
 
-    document.getElementById('jml-diterima').value = d.jumlah;
+    document.getElementById('jml-diterima').value = jmlDefault;
     document.getElementById('tgl-terima').valueAsDate = new Date();
     document.getElementById('penerima').value = currentUser.nama;
     document.getElementById('catatan-terima').value = '';

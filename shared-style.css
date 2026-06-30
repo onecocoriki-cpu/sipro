@@ -605,3 +605,29 @@ tr:hover td { background: #fafafa; }
 .btn-google svg { width: 20px; height: 20px; }
 
 .login-footer { text-align: center; font-size: .78rem; color: var(--muted); margin-top: 1.75rem; }
+
+
+/* ============================================================
+   PARTIAL BADGE & STYLES
+   ============================================================ */
+.badge-partial { background: #fff7ed; color: #c2410c; }
+
+.partial-option-group { display: flex; gap: 12px; margin: 1rem 0; }
+.partial-option {
+  flex: 1; padding: 1rem; border: 2px solid var(--border); border-radius: 12px;
+  cursor: pointer; text-align: center; transition: all .2s; background: var(--white);
+}
+.partial-option:hover { border-color: var(--primary); }
+.partial-option.selected { border-color: var(--primary); background: var(--primary-bg); }
+.partial-option .icon { font-size: 1.5rem; margin-bottom: .4rem; }
+.partial-option .title { font-weight: 700; font-size: .95rem; }
+.partial-option .desc { font-size: .78rem; color: var(--muted); margin-top: .2rem; }
+.partial-option input { display: none; }
+.partial-qty-field { display: none; margin-top: 1rem; padding: 1rem; background: var(--bg); border-radius: var(--radius); }
+.partial-qty-field.show { display: block; }
+.partial-info { font-size: .85rem; color: var(--muted); margin-top: .5rem; }
+
+.partial-history { margin-top: 1.5rem; padding: 1rem; background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius); }
+.partial-history .ph-title { font-weight: 700; font-size: .9rem; color: #92400e; margin-bottom: .5rem; }
+.partial-history .ph-item { font-size: .85rem; color: var(--muted); }
+.partial-history .ph-item b { color: var(--text); }
