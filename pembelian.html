@@ -48,13 +48,9 @@
       <div class="num" id="cnt-ready">0</div>
       <div class="lbl">Siap Diproses</div>
     </div>
-    <div class="stat-card process">
-      <div class="num" id="cnt-purchased">0</div>
-      <div class="lbl">Sudah Dibeli</div>
-    </div>
     <div class="stat-card done">
       <div class="num" id="cnt-shipped">0</div>
-      <div class="lbl">Dikirim</div>
+      <div class="lbl">Dikirim ke Gudang</div>
     </div>
     <div class="stat-card done">
       <div class="num" id="cnt-done">0</div>
@@ -69,8 +65,7 @@
   <!-- TABS & TOOLBAR -->
   <div class="tabs">
     <button class="tab purple active" onclick="setFilter('ready', this)">Siap Diproses</button>
-    <button class="tab purple" onclick="setFilter('purchased', this)">Sudah Dibeli</button>
-    <button class="tab purple" onclick="setFilter('shipped', this)">Dikirim</button>
+    <button class="tab purple" onclick="setFilter('shipped', this)">Dikirim ke Gudang</button>
     <button class="tab purple" onclick="setFilter('received', this)">Diterima Gudang</button>
     <button class="tab purple" onclick="setFilter('all', this)">Semua</button>
   </div>
@@ -122,9 +117,12 @@
     <div class="modal-body">
       <div class="detail-grid" id="detail-grid"></div>
 
-      <!-- Form Pembelian -->
+      <!-- Form Pembelian + Pengiriman Gabungan -->
       <div class="section-box" id="form-beli" style="display:none">
-        <h4>📦 Input Data Pembelian</h4>
+        <h4>📦 Input Data Pembelian & Pengiriman</h4>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
+          Isi data pembelian dan tanggal pengiriman ke gudang. Data akan langsung tersimpan dan barang akan dikirim ke gudang.
+        </p>
         <div class="form-grid-2">
           <div class="field">
             <label for="supplier">Nama Supplier <span class="req">*</span></label>
@@ -146,30 +144,13 @@
             <label for="tgl-beli">Tanggal Beli <span class="req">*</span></label>
             <input type="date" id="tgl-beli"/>
           </div>
+          <div class="field">
+            <label for="tgl-kirim">Tanggal Dikirim ke Gudang <span class="req">*</span></label>
+            <input type="date" id="tgl-kirim"/>
+          </div>
           <div class="field full">
             <label for="catatan-beli">Catatan Pembelian</label>
             <textarea id="catatan-beli" placeholder="Catatan tambahan, kondisi barang, dsb..."></textarea>
-          </div>
-        </div>
-        <div class="modal-actions">
-          <button class="btn-secondary" onclick="closeModal()">Batal</button>
-          <button class="btn-primary" id="btn-simpan-beli" onclick="simpanPembelian()">
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-            Konfirmasi Sudah Dibeli
-          </button>
-        </div>
-      </div>
-
-      <!-- Form Konfirmasi Barang Dikirim ke Gudang -->
-      <div class="section-box" id="form-kirim" style="display:none">
-        <h4>🚚 Konfirmasi Barang Dikirim ke Gudang</h4>
-        <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
-          Konfirmasi bahwa barang telah dikirim ke gudang. Penerimaan dan pengecekan barang akan dilakukan oleh petugas gudang.
-        </p>
-        <div class="form-grid-2">
-          <div class="field">
-            <label for="tgl-kirim">Tanggal Dikirim <span class="req">*</span></label>
-            <input type="date" id="tgl-kirim"/>
           </div>
           <div class="field full">
             <label for="catatan-kirim">Catatan Pengiriman</label>
@@ -178,9 +159,9 @@
         </div>
         <div class="modal-actions">
           <button class="btn-secondary" onclick="closeModal()">Batal</button>
-          <button class="btn-success" id="btn-simpan-kirim" onclick="simpanPengiriman()">
+          <button class="btn-primary" id="btn-simpan-beli" onclick="simpanPembelian()">
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-            Konfirmasi Dikirim ke Gudang
+            Konfirmasi Beli & Kirim ke Gudang
           </button>
         </div>
       </div>
@@ -238,12 +219,11 @@ function loadData() {
 }
 
 function updateStats() {
-  const purchased = allDocs.filter(d => d.status === 'Purchased');
-  document.getElementById('cnt-ready').textContent     = allDocs.filter(d => d.status === 'Approved2').length;
-  document.getElementById('cnt-purchased').textContent   = purchased.filter(d => !d.pengiriman).length;
-  document.getElementById('cnt-shipped').textContent    = purchased.filter(d => d.pengiriman).length;
-  document.getElementById('cnt-done').textContent       = allDocs.filter(d => d.status === 'Received').length;
-  document.getElementById('cnt-synced').textContent     = allDocs.filter(d => d.syncedToSheets).length;
+  const shipped = allDocs.filter(d => d.status === 'Purchased' && d.pengiriman);
+  document.getElementById('cnt-ready').textContent   = allDocs.filter(d => d.status === 'Approved2').length;
+  document.getElementById('cnt-shipped').textContent = shipped.length;
+  document.getElementById('cnt-done').textContent    = allDocs.filter(d => d.status === 'Received').length;
+  document.getElementById('cnt-synced').textContent  = allDocs.filter(d => d.syncedToSheets).length;
 }
 
 function setFilter(f, btn) {
@@ -258,7 +238,6 @@ function getFiltered() {
   return allDocs.filter(d => {
     const statusOk = {
       ready:     d.status === 'Approved2',
-      purchased: d.status === 'Purchased' && !d.pengiriman,
       shipped:   d.status === 'Purchased' && d.pengiriman,
       received:  d.status === 'Received',
       all:       ['Approved2','Purchased','Received'].includes(d.status),
@@ -286,9 +265,7 @@ function renderTable() {
     const tgl = d.approvalManager?.waktu?.toDate ? formatTgl(d.approvalManager.waktu.toDate()) : '—';
     let aksi = '';
     if (d.status === 'Approved2') {
-      aksi = `<button class="btn-proses" onclick="openModal('${d.id}','beli')">Proses Beli</button>`;
-    } else if (d.status === 'Purchased' && !d.pengiriman) {
-      aksi = `<button class="btn-terima" onclick="openModal('${d.id}','kirim')">Konfirmasi Kirim</button>`;
+      aksi = `<button class="btn-proses" onclick="openModal('${d.id}','beli')">Proses Beli & Kirim</button>`;
     } else {
       aksi = `<button class="btn-detail" onclick="openModal('${d.id}','detail')">Detail</button>`;
     }
@@ -297,7 +274,6 @@ function renderTable() {
       ? `<span class="badge badge-synced">✓ Synced</span>`
       : `<span class="badge badge-unsynced">Belum</span>`;
 
-    // FIX: Badge status yang benar untuk status Purchased
     const statusBadge = getStatusBadge(d.status, d.pengiriman);
 
     return `<tr>
@@ -315,10 +291,9 @@ function renderTable() {
   }).join('');
 }
 
-// FIX: Helper untuk badge status yang benar
 function getStatusBadge(status, pengiriman) {
   if (status === 'Purchased' && pengiriman) {
-    return `<span class="badge badge-shipped">Dikirim</span>`;
+    return `<span class="badge badge-shipped">Dikirim ke Gudang</span>`;
   }
   return badgeStatus(status);
 }
@@ -329,14 +304,15 @@ function openModal(id, mode) {
   if (!selectedDoc) return;
   const d = selectedDoc;
 
-  document.getElementById('modal-title').textContent = `${d.noPerm} — ${mode === 'beli' ? 'Proses Pembelian' : mode === 'kirim' ? 'Konfirmasi Pengiriman' : 'Detail'}`;
-  document.getElementById('form-beli').style.display   = mode === 'beli'   ? '' : 'none';
-  document.getElementById('form-kirim').style.display = mode === 'kirim' ? '' : 'none';
+  document.getElementById('modal-title').textContent = `${d.noPerm} — ${mode === 'beli' ? 'Proses Beli & Kirim' : 'Detail'}`;
+  document.getElementById('form-beli').style.display = mode === 'beli' ? '' : 'none';
 
-  if (mode === 'beli')   { document.getElementById('tgl-beli').valueAsDate = new Date(); hitungTotal(); }
-  if (mode === 'kirim')  { document.getElementById('tgl-kirim').valueAsDate = new Date(); }
+  if (mode === 'beli') {
+    document.getElementById('tgl-beli').valueAsDate = new Date();
+    document.getElementById('tgl-kirim').valueAsDate = new Date();
+    hitungTotal();
+  }
 
-  // FIX: Badge status di detail grid juga menggunakan helper yang benar
   const detailStatusBadge = getStatusBadge(d.status, d.pengiriman);
 
   document.getElementById('detail-grid').innerHTML = `
@@ -353,6 +329,10 @@ function openModal(id, mode) {
     <div class="detail-item"><span class="lbl">No. PO</span><span class="val">${escapeHtml(d.pembelian.noPO) || '—'}</span></div>
     <div class="detail-item"><span class="lbl">Harga Satuan</span><span class="val">${formatRp(d.pembelian.hargaSatuan)}</span></div>
     <div class="detail-item"><span class="lbl">Total Harga</span><span class="val" style="font-weight:700;color:var(--purple)">${formatRp(d.pembelian.totalHarga)}</span></div>
+    ` : ''}
+    ${d.pengiriman ? `
+    <div class="detail-item"><span class="lbl">Tanggal Dikirim</span><span class="val">${escapeHtml(d.pengiriman.tglKirim)}</span></div>
+    <div class="detail-item full"><span class="lbl">Catatan Pengiriman</span><span class="val">${escapeHtml(d.pengiriman.catatanKirim) || '—'}</span></div>
     ` : ''}
     <div class="detail-item full"><span class="lbl">Status</span><span class="val">${detailStatusBadge}</span></div>
   `;
@@ -393,23 +373,26 @@ function hitungTotal() {
   document.getElementById('total-harga').value = harga * jml;
 }
 
-// ── Simpan Pembelian + Auto Sync ──
+// ── Simpan Pembelian + Pengiriman Sekaligus ──
 async function simpanPembelian() {
   const supplier    = document.getElementById('supplier').value.trim();
   const noPO        = document.getElementById('no-po').value.trim();
   const hargaSatuan = parseFloat(document.getElementById('harga-satuan').value) || 0;
   const tglBeli     = document.getElementById('tgl-beli').value;
+  const tglKirim    = document.getElementById('tgl-kirim').value;
 
-  if (!supplier || !hargaSatuan || !tglBeli) { showToast('Lengkapi semua field wajib.', 'error'); return; }
+  if (!supplier || !hargaSatuan || !tglBeli || !tglKirim) {
+    showToast('Lengkapi semua field wajib.', 'error'); return;
+  }
 
   const docId = selectedDoc.id;
 
-  setBtnLoading('btn-simpan-beli', true, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Sudah Dibeli');
+  setBtnLoading('btn-simpan-beli', true, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Beli & Kirim ke Gudang');
 
   try {
     await db.collection('permintaan').doc(selectedDoc.id).update({
       status:      'Purchased',
-      statusLabel: 'Sudah Dibeli — Menunggu Dikirim ke Gudang',
+      statusLabel: 'Dikirim ke Gudang — Menunggu Penerimaan',
       syncedToSheets: false,
       pembelian: {
         supplier,
@@ -421,34 +404,7 @@ async function simpanPembelian() {
         oleh:         currentUser.nama,
         olehEmail:    currentUser.email,
         waktu:        firebase.firestore.FieldValue.serverTimestamp(),
-      }
-    });
-    showToast('✓ Data pembelian tersimpan!', 'success');
-    closeModal();
-
-    // FIX: Auto-sync ke Sheets setelah update berhasil
-    await autoSyncAfterUpdate(docId);
-
-  } catch (e) { console.error(e); showToast('Gagal menyimpan. Coba lagi.', 'error'); }
-
-  setBtnLoading('btn-simpan-beli', false, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Sudah Dibeli');
-}
-
-// ── Simpan Pengiriman + Auto Sync ──
-async function simpanPengiriman() {
-  const tglKirim = document.getElementById('tgl-kirim').value;
-
-  if (!tglKirim) { showToast('Tanggal dikirim wajib diisi.', 'error'); return; }
-
-  const docId = selectedDoc.id;
-
-  setBtnLoading('btn-simpan-kirim', true, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Dikirim ke Gudang');
-
-  try {
-    await db.collection('permintaan').doc(selectedDoc.id).update({
-      status:      'Purchased',
-      statusLabel: 'Dikirim ke Gudang — Menunggu Penerimaan',
-      syncedToSheets: false,
+      },
       pengiriman: {
         tglKirim,
         catatanKirim: escapeHtml(document.getElementById('catatan-kirim').value.trim()),
@@ -456,51 +412,35 @@ async function simpanPengiriman() {
         waktu: firebase.firestore.FieldValue.serverTimestamp(),
       }
     });
-    showToast('✓ Barang dikonfirmasi dikirim ke gudang!', 'success');
+    showToast('✓ Barang berhasil dibeli & dikirim ke gudang!', 'success');
     closeModal();
-
-    // FIX: Auto-sync ke Sheets setelah update berhasil
     await autoSyncAfterUpdate(docId);
-
   } catch (e) { console.error(e); showToast('Gagal menyimpan. Coba lagi.', 'error'); }
 
-  setBtnLoading('btn-simpan-kirim', false, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Dikirim ke Gudang');
+  setBtnLoading('btn-simpan-beli', false, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Beli & Kirim ke Gudang');
 }
 
-// FIX: Helper auto-sync setelah update berhasil
+// ── Auto Sync ──
 async function autoSyncAfterUpdate(docId) {
   const url = (typeof window !== 'undefined' && window.APPS_SCRIPT_URL) || '';
   if (!url || url.includes('GANTI') || url === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
     console.warn('[AutoSync] APPS_SCRIPT_URL belum diisi, skip sync');
     return;
   }
-
-  // Tunggu sebentar agar snapshot listener update allDocs
   setTimeout(async () => {
-    const doc = allDocs.find(d => d.id === docId);
-    if (!doc) {
-      console.warn('[AutoSync] Dokumen tidak ditemukan di cache');
-      return;
-    }
-    if (doc.syncedToSheets) {
-      console.log('[AutoSync] Dokumen sudah tersync, skip');
-      return;
-    }
-
-    console.log('[AutoSync] Memulai sync untuk:', doc.noPerm);
     try {
+      const docSnap = await db.collection('permintaan').doc(docId).get();
+      if (!docSnap.exists) return;
+      const doc = { id: docSnap.id, ...docSnap.data() };
+      if (doc.syncedToSheets) return;
       await fetch(url, {
-        method: 'POST',
-        mode: 'no-cors',
+        method: 'POST', mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(buildSheetRow(doc)),
       });
       await db.collection('permintaan').doc(docId).update({ syncedToSheets: true });
-      console.log('[AutoSync] ✓ Sync sukses:', doc.noPerm);
       showToast('✓ Data tersync ke Google Sheets', 'success');
-    } catch (e) {
-      console.error('[AutoSync] ✗ Gagal sync:', e);
-    }
+    } catch (e) { console.error('[AutoSync] Gagal sync:', e); }
   }, 1500);
 }
 
