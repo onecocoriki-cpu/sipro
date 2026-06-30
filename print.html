@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Print Purchase Request — SiPro</title>
+  <link rel="stylesheet" href="shared-style.css"/>
+  <style>
+    body { background: #f3f4f6; padding: 20px; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .print-container { max-width: 800px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.1); padding: 2rem; }
+    .print-actions { display: flex; gap: 10px; justify-content: center; margin-bottom: 1.5rem; }
+    .print-actions button { padding: .6rem 1.5rem; border: none; border-radius: 8px; font-size: .9rem; font-weight: 600; cursor: pointer; }
+    .btn-print-action { background: var(--primary); color: white; }
+    .btn-print-action:hover { background: var(--primary-h); }
+    .btn-close-action { background: var(--bg); color: var(--text); border: 1.5px solid var(--border) !important; }
+    .print-header { text-align: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid var(--primary); }
+    .print-header h1 { font-size: 1.4rem; color: var(--primary); margin-bottom: .25rem; }
+    .print-header .subtitle { font-size: .85rem; color: var(--muted); }
+    .print-section { margin-bottom: 1.5rem; }
+    .print-section h3 { font-size: 1rem; font-weight: 700; margin-bottom: .75rem; color: var(--text); border-left: 3px solid var(--primary); padding-left: .75rem; }
+    .print-table { width: 100%; border-collapse: collapse; font-size: .9rem; margin-top: .5rem; }
+    .print-table th, .print-table td { padding: .5rem .75rem; border: 1px solid var(--border); text-align: left; }
+    .print-table th { background: var(--bg); font-weight: 600; font-size: .82rem; width: 35%; }
+    .print-table td { background: white; }
+    .print-footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); text-align: center; font-size: .78rem; color: var(--muted); }
+    .print-signature { display: flex; justify-content: space-between; margin-top: 3rem; gap: 2rem; }
+    .print-signature-box { flex: 1; text-align: center; }
+    .print-signature-box .line { border-top: 1px solid var(--text); margin-top: 4rem; padding-top: .5rem; font-size: .85rem; font-weight: 600; }
+    .print-signature-box .label { font-size: .78rem; color: var(--muted); }
+    .badge-print { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: .75rem; font-weight: 700; }
+    .badge-print.pending { background: #fef3c7; color: #92400e; }
+    .badge-print.approved1 { background: #dbeafe; color: #1e40af; }
+    .badge-print.approved2 { background: #f0fdf4; color: #057a55; }
+    .badge-print.purchased { background: #f3e8ff; color: #6b21a8; }
+    .badge-print.received { background: #dcfce7; color: #14532d; }
+    .badge-print.rejected { background: #fef2f2; color: #e02424; }
+    .status-row { margin-top: 1rem; padding: .75rem; border-radius: 8px; background: var(--bg); }
+    .status-row .status-label { font-size: .8rem; color: var(--muted); }
+    .status-row .status-value { font-size: 1rem; font-weight: 700; }
+    @media print {
+      body { background: white; padding: 0; }
+      .print-container { box-shadow: none; border-radius: 0; max-width: 100%; }
+      .print-actions { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="print-actions">
+  <button class="btn-print-action" onclick="window.print()">🖨️ Print</button>
+  <button class="btn-close-action" onclick="window.close()">✕ Tutup</button>
+</div>
+
+<div class="print-container" id="print-container">
+  <div class="print-header">
+    <h1>📋 PURCHASE REQUEST</h1>
+    <div class="subtitle">Sistem Procurement Internal — SiPro</div>
+  </div>
+
+  <div id="loading-state" style="text-align:center;padding:3rem;color:var(--muted);">
+    <div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:var(--border);border-top-color:var(--primary);display:inline-block;margin-bottom:1rem;"></div>
+    <p>Memuat data...</p>
+  </div>
+
+  <div id="content-state" style="display:none;">
+    <!-- Info Dasar -->
+    <div class="print-section">
+      <h3>Informasi Permintaan</h3>
+      <table class="print-table">
+        <tr><th>No. Permintaan</th><td id="p-no-perm">—</td></tr>
+        <tr><th>Jenis</th><td id="p-jenis">—</td></tr>
+        <tr><th>Tanggal Input</th><td id="p-tanggal">—</td></tr>
+        <tr><th>Lokasi / Gedung</th><td id="p-lokasi">—</td></tr>
+        <tr><th>Petugas Input</th><td id="p-petugas">—</td></tr>
+        <tr><th>Nama Pemohon</th><td id="p-pemohon">—</td></tr>
+      </table>
+    </div>
+
+    <!-- Detail Barang -->
+    <div class="print-section">
+      <h3>Detail Barang</h3>
+      <table class="print-table">
+        <tr><th>Nama Barang</th><td id="p-barang">—</td></tr>
+        <tr><th>Jumlah</th><td id="p-jumlah">—</td></tr>
+        <tr><th>Satuan</th><td id="p-satuan">—</td></tr>
+        <tr><th>Kebutuhan</th><td id="p-keperluan">—</td></tr>
+        <tr><th>Keterangan</th><td id="p-keterangan">—</td></tr>
+        <tr><th>Prioritas</th><td id="p-prioritas">—</td></tr>
+      </table>
+    </div>
+
+    <!-- Status -->
+    <div class="print-section">
+      <h3>Status Permintaan</h3>
+      <div class="status-row">
+        <div class="status-label">Status Saat Ini</div>
+        <div class="status-value" id="p-status">—</div>
+      </div>
+    </div>
+
+    <!-- Approval -->
+    <div class="print-section" id="p-approval-section" style="display:none;">
+      <h3>Riwayat Approval</h3>
+      <table class="print-table" id="p-approval-table">
+        <thead>
+          <tr><th>Level</th><th>Nama</th><th>Keputusan</th><th>Catatan</th><th>Waktu</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- Pembelian -->
+    <div class="print-section" id="p-pembelian-section" style="display:none;">
+      <h3>Data Pembelian</h3>
+      <table class="print-table">
+        <tr><th>Supplier</th><td id="p-supplier">—</td></tr>
+        <tr><th>No. PO / Invoice</th><td id="p-po">—</td></tr>
+        <tr><th>Harga Satuan</th><td id="p-harga">—</td></tr>
+        <tr><th>Total Harga</th><td id="p-total">—</td></tr>
+        <tr><th>Tanggal Beli</th><td id="p-tgl-beli">—</td></tr>
+      </table>
+    </div>
+
+    <!-- Pengiriman -->
+    <div class="print-section" id="p-pengiriman-section" style="display:none;">
+      <h3>Pengiriman ke Gudang</h3>
+      <table class="print-table">
+        <tr><th>Tanggal Dikirim</th><td id="p-tgl-kirim">—</td></tr>
+        <tr><th>Catatan Pengiriman</th><td id="p-catatan-kirim">—</td></tr>
+      </table>
+    </div>
+
+    <!-- Penerimaan -->
+    <div class="print-section" id="p-penerimaan-section" style="display:none;">
+      <h3>Penerimaan Barang</h3>
+      <table class="print-table">
+        <tr><th>Jumlah Diterima</th><td id="p-jml-diterima">—</td></tr>
+        <tr><th>Tanggal Diterima</th><td id="p-tgl-terima">—</td></tr>
+        <tr><th>Kondisi Barang</th><td id="p-kondisi">—</td></tr>
+        <tr><th>Diterima Oleh</th><td id="p-penerima">—</td></tr>
+        <tr><th>Catatan Penerimaan</th><td id="p-catatan-terima">—</td></tr>
+      </table>
+    </div>
+
+    <!-- Signature -->
+    <div class="print-signature">
+      <div class="print-signature-box">
+        <div class="label">Petugas Gudang</div>
+        <div class="line" id="sig-petugas">____________________</div>
+      </div>
+      <div class="print-signature-box">
+        <div class="label">Kepala Gudang</div>
+        <div class="line" id="sig-kepala">____________________</div>
+      </div>
+      <div class="print-signature-box">
+        <div class="label">Manager</div>
+        <div class="line" id="sig-manager">____________________</div>
+      </div>
+    </div>
+
+    <div class="print-footer">
+      Dokumen dicetak dari SiPro (Sistem Procurement Internal)<br>
+      <span id="p-print-date"></span>
+    </div>
+  </div>
+
+  <div id="error-state" style="display:none;text-align:center;padding:3rem;">
+    <p style="color:var(--danger);font-size:1.1rem;">❌ Data tidak ditemukan</p>
+    <p style="color:var(--muted);margin-top:.5rem;">ID permintaan tidak valid atau data telah dihapus.</p>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="shared-utils.js"></script>
+<script>
+
+function getUrlParam(name) {
+  const url = new URL(window.location.href);
+  return url.searchParams.get(name);
+}
+
+function getStatusBadgeClass(status) {
+  const map = {
+    'Pending': 'pending',
+    'Approved1': 'approved1',
+    'Approved2': 'approved2',
+    'Purchased': 'purchased',
+    'Received': 'received',
+    'Rejected': 'rejected',
+  };
+  return map[status] || 'pending';
+}
+
+async function loadPrintData() {
+  const docId = getUrlParam('id');
+  if (!docId) {
+    showError();
+    return;
+  }
+
+  try {
+    const doc = await db.collection('permintaan').doc(docId).get();
+    if (!doc.exists) {
+      showError();
+      return;
+    }
+    const d = doc.data();
+
+    // Hide loading, show content
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('content-state').style.display = 'block';
+
+    // Fill data
+    document.getElementById('p-no-perm').textContent = d.noPerm || '—';
+    document.getElementById('p-jenis').innerHTML = getTypeBadge(d.type || 'request');
+    document.getElementById('p-tanggal').textContent = d.tanggalInput?.toDate ? formatTglLong(d.tanggalInput.toDate()) : '—';
+    document.getElementById('p-lokasi').textContent = d.lokasi || '—';
+    document.getElementById('p-petugas').textContent = d.petugasInput || '—';
+    document.getElementById('p-pemohon').textContent = d.requester || '—';
+
+    document.getElementById('p-barang').textContent = d.namaBarang || '—';
+    document.getElementById('p-jumlah').textContent = d.jumlah || '—';
+    document.getElementById('p-satuan').textContent = d.satuan || '—';
+    document.getElementById('p-keperluan').textContent = d.keperluan || '—';
+    document.getElementById('p-keterangan').textContent = d.keterangan || '—';
+    document.getElementById('p-prioritas').innerHTML = `<span class="pr-${(d.prioritas || 'medium').toLowerCase()}">${d.prioritas || 'Medium'}</span>`;
+
+    const statusText = {
+      'Pending': 'Menunggu Kep. Gudang',
+      'Approved1': 'Disetujui Kep. Gudang',
+      'Approved2': 'Siap Dibeli',
+      'Purchased': 'Sudah Dibeli',
+      'Received': 'Diterima Gudang',
+      'Rejected': 'Ditolak',
+    }[d.status] || d.status;
+    document.getElementById('p-status').innerHTML = `<span class="badge-print ${getStatusBadgeClass(d.status)}">${statusText}</span>`;
+
+    // Signatures
+    if (d.petugasInput) document.getElementById('sig-petugas').textContent = d.petugasInput;
+    if (d.approvalKepGudang?.nama) document.getElementById('sig-kepala').textContent = d.approvalKepGudang.nama;
+    if (d.approvalManager?.nama) document.getElementById('sig-manager').textContent = d.approvalManager.nama;
+
+    // Approval history
+    if (d.approvalKepGudang || d.approvalManager) {
+      document.getElementById('p-approval-section').style.display = 'block';
+      const tbody = document.querySelector('#p-approval-table tbody');
+      let html = '';
+      if (d.approvalKepGudang) {
+        const ok = d.approvalKepGudang.keputusan === 'Approve';
+        html += `<tr>
+          <td>Kepala Gudang</td>
+          <td>${escapeHtml(d.approvalKepGudang.nama)}</td>
+          <td><span class="badge-print ${ok ? 'approved2' : 'rejected'}">${ok ? 'Disetujui' : 'Ditolak'}</span></td>
+          <td>${escapeHtml(d.approvalKepGudang.catatan) || '—'}</td>
+          <td>${d.approvalKepGudang.waktu?.toDate ? formatTglLong(d.approvalKepGudang.waktu.toDate()) : '—'}</td>
+        </tr>`;
+      }
+      if (d.approvalManager) {
+        const ok = d.approvalManager.keputusan === 'Approve';
+        html += `<tr>
+          <td>Manager</td>
+          <td>${escapeHtml(d.approvalManager.nama)}</td>
+          <td><span class="badge-print ${ok ? 'approved2' : 'rejected'}">${ok ? 'Disetujui' : 'Ditolak'}</span></td>
+          <td>${escapeHtml(d.approvalManager.catatan) || '—'}</td>
+          <td>${d.approvalManager.waktu?.toDate ? formatTglLong(d.approvalManager.waktu.toDate()) : '—'}</td>
+        </tr>`;
+      }
+      tbody.innerHTML = html;
+    }
+
+    // Pembelian
+    if (d.pembelian) {
+      document.getElementById('p-pembelian-section').style.display = 'block';
+      document.getElementById('p-supplier').textContent = d.pembelian.supplier || '—';
+      document.getElementById('p-po').textContent = d.pembelian.noPO || '—';
+      document.getElementById('p-harga').textContent = d.pembelian.hargaSatuan ? formatRp(d.pembelian.hargaSatuan) : '—';
+      document.getElementById('p-total').textContent = d.pembelian.totalHarga ? formatRp(d.pembelian.totalHarga) : '—';
+      document.getElementById('p-tgl-beli').textContent = d.pembelian.tglBeli || '—';
+    }
+
+    // Pengiriman
+    if (d.pengiriman) {
+      document.getElementById('p-pengiriman-section').style.display = 'block';
+      document.getElementById('p-tgl-kirim').textContent = d.pengiriman.tglKirim || '—';
+      document.getElementById('p-catatan-kirim').textContent = d.pengiriman.catatanKirim || '—';
+    }
+
+    // Penerimaan
+    if (d.penerimaan) {
+      document.getElementById('p-penerimaan-section').style.display = 'block';
+      document.getElementById('p-jml-diterima').textContent = d.penerimaan.jumlahDiterima || '—';
+      document.getElementById('p-tgl-terima').textContent = d.penerimaan.tglTerima || '—';
+      document.getElementById('p-kondisi').textContent = d.penerimaan.kondisi || '—';
+      document.getElementById('p-penerima').textContent = d.penerimaan.penerima || '—';
+      document.getElementById('p-catatan-terima').textContent = d.penerimaan.catatanTerima || '—';
+    }
+
+    document.getElementById('p-print-date').textContent = 'Dicetak: ' + formatTglLong(new Date());
+
+  } catch (e) {
+    console.error('Print load error:', e);
+    showError();
+  }
+}
+
+function showError() {
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('error-state').style.display = 'block';
+}
+
+// Load when ready
+auth.onAuthStateChanged(() => {
+  loadPrintData();
+});
+
+</script>
+</body>
+</html>

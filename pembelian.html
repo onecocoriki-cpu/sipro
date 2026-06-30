@@ -9,6 +9,12 @@
     .nav-logo { background: var(--purple) !important; }
     .user-chip { background: var(--purple-bg); color: var(--purple); }
     .tab.purple.active { background: var(--purple); color: white; border-color: var(--purple); }
+    .toolbar { flex-wrap: wrap; gap: .75rem; }
+    .search-box { flex: 1; min-width: 220px; }
+    .page-size-select {
+      padding: .55rem .75rem; border: 1.5px solid var(--border); border-radius: var(--radius);
+      font-size: .85rem; background: var(--white); color: var(--text); outline: none;
+    }
   </style>
 </head>
 <body>
@@ -48,9 +54,13 @@
       <div class="num" id="cnt-ready">0</div>
       <div class="lbl">Siap Diproses</div>
     </div>
+    <div class="stat-card process">
+      <div class="num" id="cnt-purchased">0</div>
+      <div class="lbl">Sudah Dibeli</div>
+    </div>
     <div class="stat-card done">
       <div class="num" id="cnt-shipped">0</div>
-      <div class="lbl">Dikirim ke Gudang</div>
+      <div class="lbl">Dikirim</div>
     </div>
     <div class="stat-card done">
       <div class="num" id="cnt-done">0</div>
@@ -65,7 +75,8 @@
   <!-- TABS & TOOLBAR -->
   <div class="tabs">
     <button class="tab purple active" onclick="setFilter('ready', this)">Siap Diproses</button>
-    <button class="tab purple" onclick="setFilter('shipped', this)">Dikirim ke Gudang</button>
+    <button class="tab purple" onclick="setFilter('purchased', this)">Sudah Dibeli</button>
+    <button class="tab purple" onclick="setFilter('shipped', this)">Dikirim</button>
     <button class="tab purple" onclick="setFilter('received', this)">Diterima Gudang</button>
     <button class="tab purple" onclick="setFilter('all', this)">Semua</button>
   </div>
@@ -74,6 +85,15 @@
     <div class="search-box">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/></svg>
       <input type="text" id="search-input" placeholder="Cari no. permintaan, barang, pemohon..." oninput="renderTable()"/>
+    </div>
+    <div>
+      <select id="page-size" class="page-size-select" onchange="renderTable()">
+        <option value="10">10 / hal</option>
+        <option value="25">25 / hal</option>
+        <option value="50" selected>50 / hal</option>
+        <option value="100">100 / hal</option>
+        <option value="200">200 / hal</option>
+      </select>
     </div>
     <button class="btn-sheets" id="btn-sync-all" onclick="manualSyncAll()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -87,6 +107,7 @@
         <thead>
           <tr>
             <th>No. Permintaan</th>
+            <th>Jenis</th>
             <th>Tgl Disetujui</th>
             <th>Lokasi</th>
             <th>Pemohon</th>
@@ -99,11 +120,12 @@
           </tr>
         </thead>
         <tbody id="tabel-pembelian">
-          <tr><td colspan="10"><div class="empty-state"><p>Memuat data...</p></div></td></tr>
+          <tr><td colspan="11"><div class="empty-state"><p>Memuat data...</p></div></td></tr>
         </tbody>
       </table>
     </div>
     <div class="pagination-bar" id="table-info"></div>
+    <div id="table-pagination" style="padding: 0 1rem 1rem;"></div>
   </div>
 </main>
 
@@ -117,12 +139,9 @@
     <div class="modal-body">
       <div class="detail-grid" id="detail-grid"></div>
 
-      <!-- Form Pembelian + Pengiriman Gabungan -->
+      <!-- Form Pembelian -->
       <div class="section-box" id="form-beli" style="display:none">
-        <h4>📦 Input Data Pembelian & Pengiriman</h4>
-        <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
-          Isi data pembelian dan tanggal pengiriman ke gudang. Data akan langsung tersimpan dan barang akan dikirim ke gudang.
-        </p>
+        <h4>📦 Input Data Pembelian</h4>
         <div class="form-grid-2">
           <div class="field">
             <label for="supplier">Nama Supplier <span class="req">*</span></label>
@@ -144,13 +163,30 @@
             <label for="tgl-beli">Tanggal Beli <span class="req">*</span></label>
             <input type="date" id="tgl-beli"/>
           </div>
-          <div class="field">
-            <label for="tgl-kirim">Tanggal Dikirim ke Gudang <span class="req">*</span></label>
-            <input type="date" id="tgl-kirim"/>
-          </div>
           <div class="field full">
             <label for="catatan-beli">Catatan Pembelian</label>
             <textarea id="catatan-beli" placeholder="Catatan tambahan, kondisi barang, dsb..."></textarea>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="closeModal()">Batal</button>
+          <button class="btn-primary" id="btn-simpan-beli" onclick="simpanPembelian()">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            Konfirmasi Sudah Dibeli
+          </button>
+        </div>
+      </div>
+
+      <!-- Form Konfirmasi Barang Dikirim ke Gudang -->
+      <div class="section-box" id="form-kirim" style="display:none">
+        <h4>🚚 Konfirmasi Barang Dikirim ke Gudang</h4>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
+          Konfirmasi bahwa barang telah dikirim ke gudang. Penerimaan dan pengecekan barang akan dilakukan oleh petugas gudang.
+        </p>
+        <div class="form-grid-2">
+          <div class="field">
+            <label for="tgl-kirim">Tanggal Dikirim <span class="req">*</span></label>
+            <input type="date" id="tgl-kirim"/>
           </div>
           <div class="field full">
             <label for="catatan-kirim">Catatan Pengiriman</label>
@@ -159,9 +195,9 @@
         </div>
         <div class="modal-actions">
           <button class="btn-secondary" onclick="closeModal()">Batal</button>
-          <button class="btn-primary" id="btn-simpan-beli" onclick="simpanPembelian()">
+          <button class="btn-success" id="btn-simpan-kirim" onclick="simpanPengiriman()">
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-            Konfirmasi Beli & Kirim ke Gudang
+            Konfirmasi Dikirim ke Gudang
           </button>
         </div>
       </div>
@@ -185,6 +221,7 @@ let allDocs      = [];
 let activeFilter = 'ready';
 let selectedDoc  = null;
 let snapshotUnsub = null;
+let currentPage = 1;
 
 auth.onAuthStateChanged(async user => {
   if (!user) { window.location.href = 'index.html'; return; }
@@ -201,11 +238,10 @@ function loadData() {
   if (snapshotUnsub) snapshotUnsub();
   snapshotUnsub = db.collection('permintaan')
     .orderBy('tanggalInput', 'desc')
-    .limit(50)
+    .limit(200)
     .onSnapshot(snap => {
       allDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      document.getElementById('table-info').textContent =
-        `Menampilkan ${allDocs.length} data terakhir` + (snap.size >= 50 ? ' (limit 50)' : '');
+      currentPage = 1;
       updateStats();
       renderTable();
     }, err => {
@@ -219,45 +255,61 @@ function loadData() {
 }
 
 function updateStats() {
-  const shipped = allDocs.filter(d => d.status === 'Purchased' && d.pengiriman);
-  document.getElementById('cnt-ready').textContent   = allDocs.filter(d => d.status === 'Approved2').length;
-  document.getElementById('cnt-shipped').textContent = shipped.length;
-  document.getElementById('cnt-done').textContent    = allDocs.filter(d => d.status === 'Received').length;
-  document.getElementById('cnt-synced').textContent  = allDocs.filter(d => d.syncedToSheets).length;
+  const purchased = allDocs.filter(d => d.status === 'Purchased');
+  document.getElementById('cnt-ready').textContent     = allDocs.filter(d => d.status === 'Approved2').length;
+  document.getElementById('cnt-purchased').textContent   = purchased.filter(d => !d.pengiriman).length;
+  document.getElementById('cnt-shipped').textContent    = purchased.filter(d => d.pengiriman).length;
+  document.getElementById('cnt-done').textContent       = allDocs.filter(d => d.status === 'Received').length;
+  document.getElementById('cnt-synced').textContent     = allDocs.filter(d => d.syncedToSheets).length;
 }
 
 function setFilter(f, btn) {
   activeFilter = f;
   document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  currentPage = 1;
   renderTable();
 }
 
 function getFiltered() {
-  const q = document.getElementById('search-input').value.toLowerCase().trim();
-  return allDocs.filter(d => {
+  let filtered = allDocs.filter(d => {
     const statusOk = {
       ready:     d.status === 'Approved2',
+      purchased: d.status === 'Purchased' && !d.pengiriman,
       shipped:   d.status === 'Purchased' && d.pengiriman,
       received:  d.status === 'Received',
       all:       ['Approved2','Purchased','Received'].includes(d.status),
     }[activeFilter] ?? false;
-    if (!statusOk) return false;
-    if (q) {
-      const hay = [d.noPerm, d.namaBarang, d.requester, d.lokasi].join(' ').toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
+    return statusOk;
   });
+  return filtered;
+}
+
+// FIX: Helper untuk badge status yang benar
+function getStatusBadge(status, pengiriman) {
+  if (status === 'Purchased' && pengiriman) {
+    return `<span class="badge badge-shipped">Dikirim</span>`;
+  }
+  return badgeStatus(status);
 }
 
 function renderTable() {
-  const docs  = getFiltered();
+  const q = document.getElementById('search-input').value;
+  const pageSize = parseInt(document.getElementById('page-size').value) || 50;
+
+  let filtered = getFiltered();
+  filtered = filterData(filtered, q, ['noPerm', 'namaBarang', 'requester', 'lokasi', 'pembelian.supplier']);
+
+  const paginated = paginateData(filtered, pageSize, currentPage);
+
+  const docs  = paginated.data;
   const tbody = document.getElementById('tabel-pembelian');
   if (!docs.length) {
-    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state">
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
       <p>Tidak ada data</p></div></td></tr>`;
+    document.getElementById('table-info').textContent = '';
+    document.getElementById('table-pagination').innerHTML = '';
     return;
   }
 
@@ -265,19 +317,24 @@ function renderTable() {
     const tgl = d.approvalManager?.waktu?.toDate ? formatTgl(d.approvalManager.waktu.toDate()) : '—';
     let aksi = '';
     if (d.status === 'Approved2') {
-      aksi = `<button class="btn-proses" onclick="openModal('${d.id}','beli')">Proses Beli & Kirim</button>`;
+      aksi = `<button class="btn-proses" onclick="openModal('${d.id}','beli')">Proses Beli</button>`;
+    } else if (d.status === 'Purchased' && !d.pengiriman) {
+      aksi = `<button class="btn-terima" onclick="openModal('${d.id}','kirim')">Konfirmasi Kirim</button>`;
     } else {
       aksi = `<button class="btn-detail" onclick="openModal('${d.id}','detail')">Detail</button>`;
     }
+    aksi += ` <button class="btn-print" onclick="openPrintPage('${escapeHtml(d.id)}')" title="Print">🖨️</button>`;
 
     const syncBadge = d.syncedToSheets
       ? `<span class="badge badge-synced">✓ Synced</span>`
       : `<span class="badge badge-unsynced">Belum</span>`;
 
     const statusBadge = getStatusBadge(d.status, d.pengiriman);
+    const typeBadge = getTypeBadge(d.type || 'request');
 
     return `<tr>
       <td><b style="font-size:.82rem">${escapeHtml(d.noPerm)}</b></td>
+      <td>${typeBadge}</td>
       <td style="font-size:.82rem;white-space:nowrap">${tgl}</td>
       <td style="font-size:.82rem">${escapeHtml(d.lokasi?.split('—')[0]?.trim() || d.lokasi)}</td>
       <td><div style="font-weight:600;font-size:.86rem">${escapeHtml(d.requester)}</div><div style="font-size:.78rem;color:var(--muted)">${escapeHtml(d.petugasInput)}</div></td>
@@ -286,16 +343,18 @@ function renderTable() {
       <td class="pr-${d.prioritas?.toLowerCase()}">${d.prioritas}</td>
       <td>${statusBadge}</td>
       <td>${syncBadge}</td>
-      <td>${aksi}</td>
+      <td><div class="btn-actions">${aksi}</div></td>
     </tr>`;
   }).join('');
+
+  document.getElementById('table-info').textContent =
+    `Menampilkan ${paginated.start}–${paginated.end} dari ${paginated.total} data`;
+  renderPagination('table-pagination', paginated.totalPages, paginated.currentPage, 'changePage');
 }
 
-function getStatusBadge(status, pengiriman) {
-  if (status === 'Purchased' && pengiriman) {
-    return `<span class="badge badge-shipped">Dikirim ke Gudang</span>`;
-  }
-  return badgeStatus(status);
+function changePage(page) {
+  currentPage = page;
+  renderTable();
 }
 
 // ── Modal ──
@@ -304,19 +363,19 @@ function openModal(id, mode) {
   if (!selectedDoc) return;
   const d = selectedDoc;
 
-  document.getElementById('modal-title').textContent = `${d.noPerm} — ${mode === 'beli' ? 'Proses Beli & Kirim' : 'Detail'}`;
-  document.getElementById('form-beli').style.display = mode === 'beli' ? '' : 'none';
+  document.getElementById('modal-title').textContent = `${d.noPerm} — ${mode === 'beli' ? 'Proses Pembelian' : mode === 'kirim' ? 'Konfirmasi Pengiriman' : 'Detail'}`;
+  document.getElementById('form-beli').style.display   = mode === 'beli'   ? '' : 'none';
+  document.getElementById('form-kirim').style.display = mode === 'kirim' ? '' : 'none';
 
-  if (mode === 'beli') {
-    document.getElementById('tgl-beli').valueAsDate = new Date();
-    document.getElementById('tgl-kirim').valueAsDate = new Date();
-    hitungTotal();
-  }
+  if (mode === 'beli')   { document.getElementById('tgl-beli').valueAsDate = new Date(); hitungTotal(); }
+  if (mode === 'kirim')  { document.getElementById('tgl-kirim').valueAsDate = new Date(); }
 
   const detailStatusBadge = getStatusBadge(d.status, d.pengiriman);
+  const typeBadge = getTypeBadge(d.type || 'request');
 
   document.getElementById('detail-grid').innerHTML = `
     <div class="detail-item"><span class="lbl">No. Permintaan</span><span class="val">${escapeHtml(d.noPerm)}</span></div>
+    <div class="detail-item"><span class="lbl">Jenis</span><span class="val">${typeBadge}</span></div>
     <div class="detail-item"><span class="lbl">Prioritas</span><span class="val pr-${d.prioritas?.toLowerCase()}">${d.prioritas}</span></div>
     <div class="detail-item"><span class="lbl">Lokasi</span><span class="val">${escapeHtml(d.lokasi)}</span></div>
     <div class="detail-item"><span class="lbl">Pemohon</span><span class="val">${escapeHtml(d.requester)}</span></div>
@@ -329,10 +388,6 @@ function openModal(id, mode) {
     <div class="detail-item"><span class="lbl">No. PO</span><span class="val">${escapeHtml(d.pembelian.noPO) || '—'}</span></div>
     <div class="detail-item"><span class="lbl">Harga Satuan</span><span class="val">${formatRp(d.pembelian.hargaSatuan)}</span></div>
     <div class="detail-item"><span class="lbl">Total Harga</span><span class="val" style="font-weight:700;color:var(--purple)">${formatRp(d.pembelian.totalHarga)}</span></div>
-    ` : ''}
-    ${d.pengiriman ? `
-    <div class="detail-item"><span class="lbl">Tanggal Dikirim</span><span class="val">${escapeHtml(d.pengiriman.tglKirim)}</span></div>
-    <div class="detail-item full"><span class="lbl">Catatan Pengiriman</span><span class="val">${escapeHtml(d.pengiriman.catatanKirim) || '—'}</span></div>
     ` : ''}
     <div class="detail-item full"><span class="lbl">Status</span><span class="val">${detailStatusBadge}</span></div>
   `;
@@ -373,26 +428,23 @@ function hitungTotal() {
   document.getElementById('total-harga').value = harga * jml;
 }
 
-// ── Simpan Pembelian + Pengiriman Sekaligus ──
+// ── Simpan Pembelian + Auto Sync ──
 async function simpanPembelian() {
   const supplier    = document.getElementById('supplier').value.trim();
   const noPO        = document.getElementById('no-po').value.trim();
   const hargaSatuan = parseFloat(document.getElementById('harga-satuan').value) || 0;
   const tglBeli     = document.getElementById('tgl-beli').value;
-  const tglKirim    = document.getElementById('tgl-kirim').value;
 
-  if (!supplier || !hargaSatuan || !tglBeli || !tglKirim) {
-    showToast('Lengkapi semua field wajib.', 'error'); return;
-  }
+  if (!supplier || !hargaSatuan || !tglBeli) { showToast('Lengkapi semua field wajib.', 'error'); return; }
 
   const docId = selectedDoc.id;
 
-  setBtnLoading('btn-simpan-beli', true, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Beli & Kirim ke Gudang');
+  setBtnLoading('btn-simpan-beli', true, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Sudah Dibeli');
 
   try {
     await db.collection('permintaan').doc(selectedDoc.id).update({
       status:      'Purchased',
-      statusLabel: 'Dikirim ke Gudang — Menunggu Penerimaan',
+      statusLabel: 'Sudah Dibeli — Menunggu Dikirim ke Gudang',
       syncedToSheets: false,
       pembelian: {
         supplier,
@@ -404,7 +456,31 @@ async function simpanPembelian() {
         oleh:         currentUser.nama,
         olehEmail:    currentUser.email,
         waktu:        firebase.firestore.FieldValue.serverTimestamp(),
-      },
+      }
+    });
+    showToast('✓ Data pembelian tersimpan!', 'success');
+    closeModal();
+    await autoSyncAfterUpdate(docId);
+  } catch (e) { console.error(e); showToast('Gagal menyimpan. Coba lagi.', 'error'); }
+
+  setBtnLoading('btn-simpan-beli', false, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Sudah Dibeli');
+}
+
+// ── Simpan Pengiriman + Auto Sync ──
+async function simpanPengiriman() {
+  const tglKirim = document.getElementById('tgl-kirim').value;
+
+  if (!tglKirim) { showToast('Tanggal dikirim wajib diisi.', 'error'); return; }
+
+  const docId = selectedDoc.id;
+
+  setBtnLoading('btn-simpan-kirim', true, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Dikirim ke Gudang');
+
+  try {
+    await db.collection('permintaan').doc(selectedDoc.id).update({
+      status:      'Purchased',
+      statusLabel: 'Dikirim ke Gudang — Menunggu Penerimaan',
+      syncedToSheets: false,
       pengiriman: {
         tglKirim,
         catatanKirim: escapeHtml(document.getElementById('catatan-kirim').value.trim()),
@@ -412,36 +488,12 @@ async function simpanPembelian() {
         waktu: firebase.firestore.FieldValue.serverTimestamp(),
       }
     });
-    showToast('✓ Barang berhasil dibeli & dikirim ke gudang!', 'success');
+    showToast('✓ Barang dikonfirmasi dikirim ke gudang!', 'success');
     closeModal();
     await autoSyncAfterUpdate(docId);
   } catch (e) { console.error(e); showToast('Gagal menyimpan. Coba lagi.', 'error'); }
 
-  setBtnLoading('btn-simpan-beli', false, '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Beli & Kirim ke Gudang');
-}
-
-// ── Auto Sync ──
-async function autoSyncAfterUpdate(docId) {
-  const url = (typeof window !== 'undefined' && window.APPS_SCRIPT_URL) || '';
-  if (!url || url.includes('GANTI') || url === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
-    console.warn('[AutoSync] APPS_SCRIPT_URL belum diisi, skip sync');
-    return;
-  }
-  setTimeout(async () => {
-    try {
-      const docSnap = await db.collection('permintaan').doc(docId).get();
-      if (!docSnap.exists) return;
-      const doc = { id: docSnap.id, ...docSnap.data() };
-      if (doc.syncedToSheets) return;
-      await fetch(url, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(buildSheetRow(doc)),
-      });
-      await db.collection('permintaan').doc(docId).update({ syncedToSheets: true });
-      showToast('✓ Data tersync ke Google Sheets', 'success');
-    } catch (e) { console.error('[AutoSync] Gagal sync:', e); }
-  }, 1500);
+  setBtnLoading('btn-simpan-kirim', false, '<svg width="16" height="16" fill="none" viewBox="0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Konfirmasi Dikirim ke Gudang');
 }
 
 // ── Manual Sync ──

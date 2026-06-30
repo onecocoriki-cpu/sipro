@@ -7,6 +7,12 @@
   <link rel="stylesheet" href="shared-style.css"/>
   <style>
     .user-chip { background: var(--bg); color: var(--text); }
+    .toolbar { flex-wrap: wrap; gap: .75rem; }
+    .search-box { flex: 1; min-width: 220px; }
+    .page-size-select {
+      padding: .55rem .75rem; border: 1.5px solid var(--border); border-radius: var(--radius);
+      font-size: .85rem; background: var(--white); color: var(--text); outline: none;
+    }
   </style>
 </head>
 <body>
@@ -66,6 +72,15 @@
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/></svg>
       <input type="text" id="search-input" placeholder="Cari no. permintaan, nama barang, pemohon..." oninput="filterTable()"/>
     </div>
+    <div>
+      <select id="page-size" class="page-size-select" onchange="filterTable()">
+        <option value="10">10 / hal</option>
+        <option value="25">25 / hal</option>
+        <option value="50" selected>50 / hal</option>
+        <option value="100">100 / hal</option>
+        <option value="200">200 / hal</option>
+      </select>
+    </div>
     <button class="filter-btn active" onclick="setFilter('semua', this)">Semua</button>
     <button class="filter-btn" onclick="setFilter('pending', this)">Perlu Aksi</button>
     <button class="filter-btn" onclick="setFilter('selesai', this)">Selesai</button>
@@ -78,6 +93,7 @@
         <thead>
           <tr>
             <th>No. Permintaan</th>
+            <th>Jenis</th>
             <th>Tgl Input</th>
             <th>Lokasi</th>
             <th>Pemohon</th>
@@ -89,11 +105,12 @@
           </tr>
         </thead>
         <tbody id="tabel-approval">
-          <tr><td colspan="9"><div class="empty-state"><p>Memuat data...</p></div></td></tr>
+          <tr><td colspan="10"><div class="empty-state"><p>Memuat data...</p></div></td></tr>
         </tbody>
       </table>
     </div>
     <div class="pagination-bar" id="table-info"></div>
+    <div id="table-pagination" style="padding: 0 1rem 1rem;"></div>
   </div>
 </main>
 
@@ -141,11 +158,12 @@ let allDocs     = [];
 let activeFilter = 'semua';
 let selectedDoc  = null;
 let snapshotUnsub = null;
+let currentPage = 1;
 
 // ── Auth guard ──
 auth.onAuthStateChanged(async user => {
   if (!user) { window.location.href = 'index.html'; return; }
-  await ensureUserDoc(); // ← Auto-create users/{uid} jika belum ada
+  await ensureUserDoc();
   currentUser = await getCurrentUserInfo();
   if (!currentUser || !['kepala_gudang', 'manager'].includes(currentUser.role)) {
     window.location.href = 'index.html'; return;
@@ -164,18 +182,17 @@ function initPage() {
     isManager ? 'Dashboard Approval — Manager' : 'Dashboard Approval — Kepala Gudang';
 }
 
-// ── Load data (limit 50 untuk performa) ──
+// ── Load data (limit 200) ──
 function loadData() {
   if (snapshotUnsub) snapshotUnsub();
   snapshotUnsub = db.collection('permintaan')
     .orderBy('tanggalInput', 'desc')
-    .limit(50)
+    .limit(200)
     .onSnapshot(snap => {
       allDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      document.getElementById('table-info').textContent =
-        `Menampilkan ${allDocs.length} data terakhir` + (snap.size >= 50 ? ' (limit 50)' : '');
+      currentPage = 1;
       updateStats();
-      renderTable();
+      filterTable();
     }, err => {
       console.error('Snapshot error:', err);
       if (err.code === 'failed-precondition') {
@@ -205,15 +222,16 @@ function setFilter(f, btn) {
   activeFilter = f;
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  renderTable();
+  currentPage = 1;
+  filterTable();
 }
-function filterTable() { renderTable(); }
 
-function getFilteredDocs() {
+function filterTable() {
   const isKepGudang = currentUser.role === 'kepala_gudang';
-  const q = document.getElementById('search-input').value.toLowerCase().trim();
+  const q = document.getElementById('search-input').value;
+  const pageSize = parseInt(document.getElementById('page-size').value) || 50;
 
-  return allDocs.filter(d => {
+  let filtered = allDocs.filter(d => {
     if (activeFilter === 'pending') {
       if (isKepGudang && d.status !== 'Pending') return false;
       if (!isKepGudang && d.status !== 'Approved1') return false;
@@ -221,21 +239,29 @@ function getFilteredDocs() {
     if (activeFilter === 'selesai') {
       if (!['Rejected','Purchased','Received'].includes(d.status)) return false;
     }
-    if (q) {
-      const hay = [d.noPerm, d.namaBarang, d.requester, d.lokasi, d.petugasInput].join(' ').toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
     return true;
   });
+
+  filtered = filterData(filtered, q, ['noPerm', 'namaBarang', 'requester', 'lokasi', 'petugasInput', 'projectName']);
+
+  const paginated = paginateData(filtered, pageSize, currentPage);
+  renderTable(paginated.data);
+  document.getElementById('table-info').textContent =
+    `Menampilkan ${paginated.start}–${paginated.end} dari ${paginated.total} data`;
+  renderPagination('table-pagination', paginated.totalPages, paginated.currentPage, 'changePage');
 }
 
-function renderTable() {
-  const docs  = getFilteredDocs();
+function changePage(page) {
+  currentPage = page;
+  filterTable();
+}
+
+function renderTable(docs) {
   const tbody = document.getElementById('tabel-approval');
   const isKepGudang = currentUser.role === 'kepala_gudang';
 
   if (!docs.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       <p>Tidak ada data yang sesuai</p></div></td></tr>`;
     return;
@@ -244,12 +270,19 @@ function renderTable() {
   tbody.innerHTML = docs.map(d => {
     const tgl      = d.tanggalInput?.toDate ? formatTgl(d.tanggalInput.toDate()) : '—';
     const canAct   = isKepGudang ? d.status === 'Pending' : d.status === 'Approved1';
-    const actions  = canAct
-      ? `<div class="btn-actions"><button class="btn-approve" onclick="openModal('${d.id}')">Proses</button></div>`
-      : `<button class="btn-detail" onclick="openModal('${d.id}')">Detail</button>`;
+    const typeBadge = getTypeBadge(d.type || 'request');
+
+    let actions = [];
+    if (canAct) {
+      actions.push(`<button class="btn-approve" onclick="openModal('${d.id}')">Proses</button>`);
+    } else {
+      actions.push(`<button class="btn-detail" onclick="openModal('${d.id}')">Detail</button>`);
+    }
+    actions.push(`<button class="btn-print" onclick="openPrintPage('${escapeHtml(d.id)}')" title="Print">🖨️</button>`);
 
     return `<tr>
       <td><b style="font-size:.82rem">${escapeHtml(d.noPerm)}</b></td>
+      <td>${typeBadge}</td>
       <td style="white-space:nowrap;font-size:.82rem">${tgl}</td>
       <td style="font-size:.82rem">${escapeHtml(d.lokasi?.split('—')[0]?.trim() || d.lokasi)}</td>
       <td>
@@ -263,7 +296,7 @@ function renderTable() {
       <td style="white-space:nowrap;font-size:.86rem">${d.jumlah} ${d.satuan}</td>
       <td class="pr-${d.prioritas?.toLowerCase()}">${d.prioritas}</td>
       <td>${badgeStatus(d.status)}</td>
-      <td>${actions}</td>
+      <td><div class="btn-actions">${actions.join('')}</div></td>
     </tr>`;
   }).join('');
 }
@@ -282,6 +315,7 @@ function openModal(id) {
 
   document.getElementById('detail-grid').innerHTML = `
     <div class="detail-item"><span class="lbl">No. Permintaan</span><span class="val">${escapeHtml(d.noPerm)}</span></div>
+    <div class="detail-item"><span class="lbl">Jenis</span><span class="val">${getTypeBadge(d.type || 'request')}</span></div>
     <div class="detail-item"><span class="lbl">Tanggal Input</span><span class="val">${d.tanggalInput?.toDate ? formatTglLong(d.tanggalInput.toDate()) : '—'}</span></div>
     <div class="detail-item"><span class="lbl">Lokasi / Gedung</span><span class="val">${escapeHtml(d.lokasi)}</span></div>
     <div class="detail-item"><span class="lbl">Pemohon</span><span class="val">${escapeHtml(d.requester)}</span></div>

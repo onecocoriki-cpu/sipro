@@ -230,3 +230,151 @@ function buildSheetRow(d) {
     penerima:       d.penerimaan?.penerima        || '',
   };
 }
+
+/* ============================================================
+   PAGINATION HELPER (Cocoriki-style)
+   ============================================================ */
+
+function paginateData(data, pageSize = 10, page = 1) {
+  const total = data.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const start = (currentPage - 1) * pageSize;
+  const end = start + pageSize;
+  return {
+    data: data.slice(start, end),
+    total,
+    totalPages,
+    currentPage,
+    start: start + 1,
+    end: Math.min(end, total),
+    pageSize,
+  };
+}
+
+function renderPagination(containerId, totalPages, currentPage, onChange) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  if (totalPages <= 1) { container.innerHTML = ''; return; }
+
+  let html = '<div class="pagination-controls">';
+  // Prev
+  html += `<button class="pagination-btn ${currentPage === 1 ? 'disabled' : ''}" onclick="${onChange}(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>←</button>`;
+
+  // Pages
+  const maxVisible = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+  let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+  if (endPage - startPage + 1 < maxVisible) {
+    startPage = Math.max(1, endPage - maxVisible + 1);
+  }
+
+  if (startPage > 1) {
+    html += `<button class="pagination-btn" onclick="${onChange}(1)">1</button>`;
+    if (startPage > 2) html += '<span class="pagination-btn ellipsis">…</span>';
+  }
+  for (let i = startPage; i <= endPage; i++) {
+    html += `<button class="pagination-btn ${i === currentPage ? 'active' : ''}" onclick="${onChange}(${i})">${i}</button>`;
+  }
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) html += '<span class="pagination-btn ellipsis">…</span>';
+    html += `<button class="pagination-btn" onclick="${onChange}(${totalPages})">${totalPages}</button>`;
+  }
+
+  // Next
+  html += `<button class="pagination-btn ${currentPage === totalPages ? 'disabled' : ''}" onclick="${onChange}(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>→</button>`;
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+/* ============================================================
+   SEARCH HELPER
+   ============================================================ */
+function filterData(data, query, fields) {
+  if (!query || !query.trim()) return data;
+  const q = query.toLowerCase().trim();
+  return data.filter(d => {
+    const text = fields.map(f => {
+      // Support nested fields like 'pembelian.supplier'
+      let val = d;
+      const parts = f.split('.');
+      for (const part of parts) {
+        if (val == null) break;
+        val = val[part];
+      }
+      if (val == null) return '';
+      if (typeof val === 'string') return val;
+      if (val instanceof Date) return val.toLocaleDateString('id-ID');
+      if (val.toDate) return val.toDate().toLocaleDateString('id-ID');
+      return String(val);
+    }).join(' ').toLowerCase();
+    return text.includes(q);
+  });
+}
+
+/* ============================================================
+   PRINT HELPER
+   ============================================================ */
+function openPrintPage(docId) {
+  if (!docId) return;
+  const url = `print.html?id=${encodeURIComponent(docId)}`;
+  window.open(url, '_blank', 'width=900,height=700,scrollbars=yes');
+}
+
+/* ============================================================
+   MINI PROJECT HELPER
+   ============================================================ */
+function getTypeBadge(type) {
+  if (type === 'project') return '<span class="badge badge-project">🔧 Project</span>';
+  return '<span class="badge badge-request">📋 Request</span>';
+}
+
+/* ============================================================
+   DATE PARSER HELPER
+   ============================================================ */
+function parseFirestoreDate(val) {
+  if (!val) return null;
+  if (val.toDate) return val.toDate();
+  if (val instanceof Date) return val;
+  if (typeof val === 'string') {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
+function formatDateInput(d) {
+  if (!d || !(d instanceof Date)) return '';
+  return d.toISOString().split('T')[0];
+}
+
+/* ============================================================
+   AUTO SYNC HELPER
+   ============================================================ */
+async function autoSyncAfterUpdate(docId) {
+  const url = (typeof window !== 'undefined' && window.APPS_SCRIPT_URL) || '';
+  if (!url || url.includes('GANTI') || url === 'GANTI_DENGAN_URL_APPS_SCRIPT_ANDA') {
+    console.warn('[AutoSync] APPS_SCRIPT_URL belum diisi, skip sync');
+    return;
+  }
+
+  setTimeout(async () => {
+    try {
+      const docSnap = await db.collection('permintaan').doc(docId).get();
+      if (!docSnap.exists) { console.warn('[AutoSync] Dokumen tidak ditemukan'); return; }
+      const doc = { id: docSnap.id, ...docSnap.data() };
+      if (doc.syncedToSheets) { console.log('[AutoSync] Dokumen sudah tersync, skip'); return; }
+
+      console.log('[AutoSync] Memulai sync untuk:', doc.noPerm);
+      await fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(buildSheetRow(doc)),
+      });
+      await db.collection('permintaan').doc(docId).update({ syncedToSheets: true });
+      console.log('[AutoSync] ✓ Sync sukses:', doc.noPerm);
+      showToast('✓ Data tersync ke Google Sheets', 'success');
+    } catch (e) { console.error('[AutoSync] ✗ Gagal sync:', e); }
+  }, 1500);
+}

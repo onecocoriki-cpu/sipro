@@ -399,6 +399,132 @@ tr:hover td { background: #fafafa; }
 .pagination-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding: 0 1rem 1rem; font-size: .85rem; color: var(--muted); }
 
 /* ============================================================
+   PAGINATION CONTROLS (Cocoriki-style)
+   ============================================================ */
+.pagination-controls { display: flex; align-items: center; gap: 4px; }
+.pagination-btn {
+  padding: 5px 10px; border: 1.5px solid var(--border); border-radius: 6px;
+  background: var(--white); font-size: .8rem; cursor: pointer; color: var(--muted);
+  transition: all .2s; min-width: 32px; text-align: center;
+}
+.pagination-btn:hover { border-color: var(--primary); color: var(--primary); }
+.pagination-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+.pagination-btn.disabled { opacity: .4; cursor: not-allowed; }
+.pagination-btn.ellipsis { border: none; background: transparent; cursor: default; }
+.pagination-btn.ellipsis:hover { border: none; color: var(--muted); }
+.pagination-info { font-size: .8rem; color: var(--muted); margin-right: 8px; }
+
+/* ============================================================
+   SEARCH & FILTER
+   ============================================================ */
+.search-box { flex: 1; min-width: 200px; position: relative; }
+.search-box input {
+  width: 100%; padding: .6rem .9rem .6rem 2.4rem;
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  font-size: .9rem; outline: none; transition: border-color .2s;
+}
+.search-box input:focus { border-color: var(--primary); }
+.search-box svg {
+  position: absolute; left: .75rem; top: 50%; transform: translateY(-50%);
+  width: 16px; height: 16px; color: var(--muted); pointer-events: none;
+}
+
+/* ============================================================
+   MODAL EDIT (Cocoriki-style)
+   ============================================================ */
+.edit-modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.5);
+  z-index: 300; display: none; align-items: center; justify-content: center; padding: 1rem;
+}
+.edit-modal-overlay.open { display: flex; }
+.edit-modal {
+  background: var(--white); border-radius: 16px;
+  width: 100%; max-width: 680px; max-height: 92vh;
+  overflow-y: auto; box-shadow: var(--shadow-lg);
+  animation: popIn .2s ease;
+}
+.edit-modal-head {
+  padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; background: var(--white); z-index: 1;
+}
+.edit-modal-head h3 { font-size: 1.05rem; font-weight: 700; }
+.edit-modal-body { padding: 1.5rem; }
+.edit-modal-actions { display: flex; gap: .75rem; margin-top: 1.1rem; justify-content: flex-end; flex-wrap: wrap; }
+.edit-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.edit-form-grid .full { grid-column: 1 / -1; }
+.edit-form-grid .col-3 { grid-template-columns: 1fr 1fr 1fr; }
+.edit-field label { display: block; font-size: .825rem; font-weight: 600; color: var(--text); margin-bottom: .35rem; }
+.edit-field input, .edit-field select, .edit-field textarea {
+  width: 100%; padding: .6rem .85rem; border: 1.5px solid var(--border);
+  border-radius: var(--radius); font-size: .9rem; color: var(--text);
+  font-family: inherit; outline: none; transition: border-color .2s, box-shadow .2s; background: var(--white);
+}
+.edit-field input:focus, .edit-field select:focus, .edit-field textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
+.edit-field textarea { resize: vertical; min-height: 60px; }
+.edit-field .readonly-display {
+  background: var(--bg); padding: .6rem .85rem; border-radius: var(--radius);
+  font-size: .9rem; color: var(--muted); border: 1.5px solid var(--border);
+}
+
+/* ============================================================
+   MINI PROJECT BADGE
+   ============================================================ */
+.badge-project { background: #fef3c7; color: #92400e; font-size: .7rem; margin-left: 4px; }
+.badge-request { background: #dbeafe; color: #1e40af; font-size: .7rem; margin-left: 4px; }
+
+/* ============================================================
+   ACTION BUTTONS (Edit, Print)
+   ============================================================ */
+.btn-edit {
+  padding: .38rem .75rem; background: #f59e0b; color: white; border: none; border-radius: 6px;
+  font-size: .8rem; cursor: pointer; transition: all .2s; display: inline-flex; align-items: center; gap: 4px;
+}
+.btn-edit:hover { background: #d97706; }
+.btn-print {
+  padding: .38rem .75rem; background: #6366f1; color: white; border: none; border-radius: 6px;
+  font-size: .8rem; cursor: pointer; transition: all .2s; display: inline-flex; align-items: center; gap: 4px;
+}
+.btn-print:hover { background: #4f46e5; }
+
+/* ============================================================
+   PRINT STYLES
+   ============================================================ */
+@media print {
+  nav, .btn-logout, .user-chip, .tabs, .toolbar, .btn-actions,
+  .btn-approve, .btn-reject, .btn-detail, .btn-proses, .btn-terima,
+  .btn-edit, .btn-print, .btn-batal, .btn-submit, .btn-reset,
+  .modal-overlay, .edit-modal-overlay, .pagination-controls, #offline-bar, .form-actions,
+  .nav-right, .role-chip { display: none !important; }
+  main { max-width: 100%; padding: 1rem; }
+  body { background: white; }
+  .card { box-shadow: none; border: 1px solid #e5e7eb; }
+  .table-wrap { overflow: visible; }
+  table { font-size: 11pt; }
+  th { background: #f3f4f6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .badge { border: 1px solid #e5e7eb; }
+  .page-header { text-align: center; margin-bottom: 2rem; }
+  .page-header::after { content: '— Print dari SiPro —'; display: block; font-size: .8rem; color: #9ca3af; margin-top: .5rem; }
+}
+
+/* ============================================================
+   PRINT PAGE SPECIFIC
+   ============================================================ */
+.print-header { text-align: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid var(--primary); }
+.print-header h1 { font-size: 1.5rem; color: var(--primary); }
+.print-header .print-meta { font-size: .85rem; color: var(--muted); margin-top: .5rem; }
+.print-section { margin-bottom: 1.5rem; }
+.print-section h3 { font-size: 1rem; font-weight: 700; margin-bottom: .75rem; color: var(--text); border-left: 3px solid var(--primary); padding-left: .75rem; }
+.print-table { width: 100%; border-collapse: collapse; font-size: .9rem; margin-top: .5rem; }
+.print-table th, .print-table td { padding: .5rem .75rem; border: 1px solid var(--border); text-align: left; }
+.print-table th { background: var(--bg); font-weight: 600; font-size: .82rem; }
+.print-footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); text-align: center; font-size: .78rem; color: var(--muted); }
+.print-signature { display: flex; justify-content: space-between; margin-top: 3rem; gap: 2rem; }
+.print-signature-box { flex: 1; text-align: center; }
+.print-signature-box .line { border-top: 1px solid var(--text); margin-top: 4rem; padding-top: .5rem; font-size: .85rem; }
+.print-signature-box .label { font-size: .78rem; color: var(--muted); }
+
+/* ============================================================
    NOSCRIPT
    ============================================================ */
 .noscript-msg {
